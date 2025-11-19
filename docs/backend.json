@@ -1,0 +1,305 @@
+{
+  "entities": {
+    "User": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "User",
+      "type": "object",
+      "description": "Represents a user of the AttendX system.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the User entity."
+        },
+        "firstName": {
+          "type": "string",
+          "description": "The first name of the user."
+        },
+        "lastName": {
+          "type": "string",
+          "description": "The last name of the user."
+        },
+        "email": {
+          "type": "string",
+          "description": "The email address of the user.",
+          "format": "email"
+        },
+        "roleId": {
+          "type": "string",
+          "description": "Reference to Role. (Relationship: Role 1:N User)"
+        }
+      },
+      "required": [
+        "id",
+        "firstName",
+        "lastName",
+        "email",
+        "roleId"
+      ]
+    },
+    "Role": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Role",
+      "type": "object",
+      "description": "Represents a role within the AttendX system (e.g., student, faculty, admin).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Role entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the role (e.g., student, faculty, admin)."
+        },
+        "permissions": {
+          "type": "array",
+          "description": "A list of permissions granted to this role",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "permissions"
+      ]
+    },
+    "Permission": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Permission",
+      "type": "object",
+      "description": "Represents a permission within the AttendX system",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Permission entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "Name of the permission."
+        }
+      },
+      "required": [
+        "id",
+        "name"
+      ]
+    },
+    "AttendanceRecord": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "AttendanceRecord",
+      "type": "object",
+      "description": "Represents a single attendance record for a student in a specific class session.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the AttendanceRecord entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to User (Student). (Relationship: User 1:N AttendanceRecord)"
+        },
+        "classSessionId": {
+          "type": "string",
+          "description": "Reference to ClassSession. (Relationship: ClassSession 1:N AttendanceRecord)"
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time the attendance was recorded.",
+          "format": "date-time"
+        },
+        "status": {
+          "type": "string",
+          "description": "The attendance status (e.g., present, absent, late)."
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "classSessionId",
+        "timestamp",
+        "status"
+      ]
+    },
+    "ClassSession": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "ClassSession",
+      "type": "object",
+      "description": "Represents a single instance of a class meeting.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the ClassSession entity."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to Course. (Relationship: Course 1:N ClassSession)"
+        },
+        "startTime": {
+          "type": "string",
+          "description": "The start date and time of the class session.",
+          "format": "date-time"
+        },
+        "endTime": {
+          "type": "string",
+          "description": "The end date and time of the class session.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "courseId",
+        "startTime",
+        "endTime"
+      ]
+    },
+    "Course": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Course",
+      "type": "object",
+      "description": "Represents a course offered by the college.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Course entity."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the course."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the course."
+        },
+        "instructorId": {
+          "type": "string",
+          "description": "Reference to User (Instructor). (Relationship: User 1:N Course)"
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "description",
+        "instructorId"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "User",
+          "schema": {
+            "$ref": "#/backend/entities/User"
+          },
+          "description": "Stores user profiles.  Path-based ownership.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The unique identifier for the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/roles/{roleId}",
+        "definition": {
+          "entityName": "Role",
+          "schema": {
+            "$ref": "#/backend/entities/Role"
+          },
+          "description": "Stores role definitions. Used for RBAC.",
+          "params": [
+            {
+              "name": "roleId",
+              "description": "The unique identifier for the role."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/permissions/{permissionId}",
+        "definition": {
+          "entityName": "Permission",
+          "schema": {
+            "$ref": "#/backend/entities/Permission"
+          },
+          "description": "Stores permission definitions.",
+          "params": [
+            {
+              "name": "permissionId",
+              "description": "The unique identifier for the permission."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}",
+        "definition": {
+          "entityName": "Course",
+          "schema": {
+            "$ref": "#/backend/entities/Course"
+          },
+          "description": "Stores course information.  `instructorId` denotes course ownership.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier for the course."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}/classSessions/{classSessionId}",
+        "definition": {
+          "entityName": "ClassSession",
+          "schema": {
+            "$ref": "#/backend/entities/ClassSession"
+          },
+          "description": "Stores class session details, nested under courses. Includes denormalized 'courseId' for authorization independence.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier for the course."
+            },
+            {
+              "name": "classSessionId",
+              "description": "The unique identifier for the class session."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/courses/{courseId}/classSessions/{classSessionId}/attendanceRecords/{attendanceRecordId}",
+        "definition": {
+          "entityName": "AttendanceRecord",
+          "schema": {
+            "$ref": "#/backend/entities/AttendanceRecord"
+          },
+          "description": "Stores attendance records, nested under class sessions. Includes denormalized 'courseId' for authorization independence.",
+          "params": [
+            {
+              "name": "courseId",
+              "description": "The unique identifier for the course."
+            },
+            {
+              "name": "classSessionId",
+              "description": "The unique identifier for the class session."
+            },
+            {
+              "name": "attendanceRecordId",
+              "description": "The unique identifier for the attendance record."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore data structure is designed to support AttendX's core features, focusing on automated attendance capture, dashboards, trend analysis, LMS integration, and user role management. The structure emphasizes security, scalability, and ease of debugging. Authorization independence is achieved by avoiding `get()` calls in security rules, using denormalization and structural segregation. The RBAC implementation leverages dedicated collections for roles and permissions.\n\n1.  **Users Collection (`/users/{userId}`):** Stores user profiles. The structure enables path-based ownership, simplifying security rules. All user-related data is nested under this path, ensuring clear ownership and access control.\n\n2.  **Roles Collection (`/roles/{roleId}`):** Stores role definitions. Used in conjunction with the `users` collection to apply RBAC. The structure ensures all documents in the collection share the same security requirements, making the security rules simpler.\n\n3.  **Permissions Collection (`/permissions/{permissionId}`):** Stores permission definitions.\n\n4.  **Courses Collection (`/courses/{courseId}`):** Stores course information. The `instructorId` field denotes course ownership. Access control can be managed based on this field.\n\n5.  **ClassSessions Collection (`/courses/{courseId}/classSessions/{classSessionId}`):** Stores individual class session details, nested under courses. Path-based ownership facilitates secure `list` operations, ensuring instructors can only access sessions for courses they own. The `courseId` is denormalized into the `classSession` document, supporting Authorization Independence.\n\n6.  **AttendanceRecords Collection (`/courses/{courseId}/classSessions/{classSessionId}/attendanceRecords/{attendanceRecordId}`):** Stores attendance records, nested under class sessions.  The `studentId` and `classSessionId` fields enable efficient querying and access control. The `courseId` is denormalized into the `attendanceRecord` document, supporting Authorization Independence.\n\nThis structure adheres to the core design principles, specifically:\n\n*   **Authorization Independence:** Achieved by denormalizing `courseId` into `classSessions` and `attendanceRecords`, eliminating the need for `get()` calls in security rules.\n*   **Clarity of Intent:** The structure makes the authorization intent explicit through path-based ownership and dedicated collections for roles and permissions.\n*   **DBAC (No Custom Claims):** Roles are stored in the database, relying solely on `request.auth.uid` for authorization.\n*   **QAPs (Rules are not Filters):** Path-based ownership and structural segregation enable secure `list` operations.\n*   **Invariants:** The structure supports the integrity of ownership, timestamps, and denormalized data through explicit schema definitions and security rules."
+  }
+}

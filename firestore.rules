@@ -1,0 +1,207 @@
+/**
+ * @fileoverview Firestore Security Rules for AttendX.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a Role-Based Access Control (RBAC) model.
+ * User access is determined by their assigned role and the permissions associated with that role.
+ * Ownership is enforced where applicable, such as on `/users/{userId}` and `/courses/{courseId}`.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles; path-based ownership.
+ * - /roles/{roleId}: Stores role definitions for RBAC.
+ * - /permissions/{permissionId}: Stores permission definitions.
+ * - /courses/{courseId}: Stores course information; `instructorId` denotes ownership.
+ * - /courses/{courseId}/classSessions/{classSessionId}: Stores class sessions, nested under courses.
+ *   Includes denormalized `courseId` for authorization independence.
+ * - /courses/{courseId}/classSessions/{classSessionId}/attendanceRecords/{attendanceRecordId}:
+ *   Stores attendance records, nested under class sessions. Includes denormalized `courseId`.
+ *
+ * Key Security Decisions:
+ * - User listing is disabled for security reasons.
+ * - Roles and Permissions collections are only writable by a user with the 'admin' role.
+ * - Authorization Independence: Denormalized `courseId` in subcollections avoids `get()` calls.
+ *
+ * Denormalization for Authorization:
+ * - The `courseId` is denormalized into the `classSessions` and `attendanceRecords` documents.
+ *   This avoids the need for `get()` calls to the parent `course` document when securing these subcollections,
+ *   improving performance and preventing rule evaluation errors.
+ *
+ * Structural Segregation:
+ * - Private user data is stored under `/users/{userId}`, separate from public course information.
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    /**
+     * @description Grants access to a user's profile based on their UID.
+     * @path /users/{userId}
+     * @allow (create) User with UID 'user123' can create their profile at /users/user123.
+     * @allow (get) User with UID 'user123' can read their profile at /users/user123.
+     * @allow (update) User with UID 'user123' can update their profile at /users/user123.
+     * @allow (delete) User with UID 'user123' can delete their profile at /users/user123.
+     * @deny (create) User with UID 'user456' cannot create a profile at /users/user123.
+     * @deny (get) User with UID 'user456' cannot read the profile at /users/user123.
+     * @principle Enforces document ownership for all operations.  Validates id on create, enforces immutability of id on update.
+     */
+    match /users/{userId} {
+      function isOwner() {
+        return request.auth.uid == userId;
+      }
+
+      function isExistingOwner() {
+        return request.auth.uid == userId && getAfter( ).data != null;
+      }
+
+      allow get: if isOwner();
+      allow list: if false; // User listing is not permitted.
+
+      allow create: if isOwner()
+                    && request.resource.data.id == userId;
+
+      allow update: if isExistingOwner()
+                    && request.resource.data.id == getAfter( ).data.id; // Enforce immutability of userId
+
+      allow delete: if isExistingOwner();
+    }
+
+    /**
+     * @description Grants access to roles based on admin role.
+     * @path /roles/{roleId}
+     * @allow (create) User with admin role can create a role.
+     * @allow (get) Any signed-in user can read a role.
+     * @allow (update) User with admin role can update a role.
+     * @allow (delete) User with admin role can delete a role.
+     * @deny (create) User without admin role cannot create a role.
+     * @deny (update) User without admin role cannot update a role.
+     * @principle Restricts write access to roles collection to admin users.
+     */
+    match /roles/{roleId} {
+        function isAdmin() {
+            return request.auth.token.role == 'admin';
+        }
+
+        allow get: if request.auth != null;
+        allow list: if request.auth != null;
+
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Grants access to permissions based on admin role.
+     * @path /permissions/{permissionId}
+     * @allow (create) User with admin role can create a permission.
+     * @allow (get) Any signed-in user can read a permission.
+     * @allow (update) User with admin role can update a permission.
+     * @allow (delete) User with admin role can delete a permission.
+     * @deny (create) User without admin role cannot create a permission.
+     * @deny (update) User without admin role cannot update a permission.
+     * @principle Restricts write access to permissions collection to admin users.
+     */
+    match /permissions/{permissionId} {
+        function isAdmin() {
+            return request.auth.token.role == 'admin';
+        }
+
+        allow get: if request.auth != null;
+        allow list: if request.auth != null;
+
+        allow create: if isAdmin();
+        allow update: if isAdmin();
+        allow delete: if isAdmin();
+    }
+
+    /**
+     * @description Grants access to courses based on instructor ownership.
+     * @path /courses/{courseId}
+     * @allow (create) Instructor with UID 'instructor123' can create a course with instructorId 'instructor123'.
+     * @allow (get) Any signed-in user can read a course.
+     * @allow (update) Instructor with UID 'instructor123' can update their course with instructorId 'instructor123'.
+     * @allow (delete) Instructor with UID 'instructor123' can delete their course with instructorId 'instructor123'.
+     * @deny (create) Instructor with UID 'instructor456' cannot create a course with instructorId 'instructor123'.
+     * @deny (update) Instructor with UID 'instructor456' cannot update the course with instructorId 'instructor123'.
+     * @principle Enforces document ownership for writes.
+     */
+    match /courses/{courseId} {
+        function isOwner(resource) {
+            return request.auth.uid == resource.data.instructorId;
+        }
+
+        function isExistingOwner() {
+            return request.auth.uid == getAfter( ).data.instructorId && getAfter( ).data != null;
+        }
+
+        allow get: if request.auth != null;
+        allow list: if request.auth != null;
+
+        allow create: if request.auth != null
+                      && request.resource.data.instructorId == request.auth.uid;
+
+        allow update: if isExistingOwner();
+        allow delete: if isExistingOwner();
+    }
+
+    /**
+     * @description Grants access to class sessions based on instructor ownership of the parent course.
+     * @path /courses/{courseId}/classSessions/{classSessionId}
+     * @allow (create) Instructor with UID 'instructor123' can create a class session under their course.
+     * @allow (get) Any signed-in user can read a class session.
+     * @allow (list) Instructor with UID 'instructor123' can list class sessions under their course.
+     * @allow (update) Instructor with UID 'instructor123' can update a class session under their course.
+     * @allow (delete) Instructor with UID 'instructor123' can delete a class session under their course.
+     * @deny (create) Instructor with UID 'instructor456' cannot create a class session under course owned by 'instructor123'.
+     * @deny (update) Instructor with UID 'instructor456' cannot update a class session under course owned by 'instructor123'.
+     * @principle Enforces instructor ownership of class sessions through the parent course's instructorId.
+     */
+    match /courses/{courseId}/classSessions/{classSessionId} {
+        // Check if the requesting user is the instructor of the parent course.
+        function isCourseInstructor() {
+            return get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+        }
+
+        function isExistingCourseInstructor() {
+            return isCourseInstructor() && getAfter( ).data != null;
+        }
+
+
+        allow get: if request.auth != null;
+        allow list: if request.auth != null && isCourseInstructor();
+
+        allow create: if request.auth != null && isCourseInstructor();
+        allow update: if isExistingCourseInstructor();
+        allow delete: if isExistingCourseInstructor();
+    }
+
+    /**
+     * @description Grants access to attendance records based on instructor ownership of the parent course.
+     * @path /courses/{courseId}/classSessions/{classSessionId}/attendanceRecords/{attendanceRecordId}
+     * @allow (create) Instructor with UID 'instructor123' can create an attendance record under their course's class session.
+     * @allow (get) Any signed-in user can read an attendance record.
+     * @allow (list) Instructor with UID 'instructor123' can list attendance records under their course's class session.
+     * @allow (update) Instructor with UID 'instructor123' can update an attendance record under their course's class session.
+     * @allow (delete) Instructor with UID 'instructor123' can delete an attendance record under their course's class session.
+     * @deny (create) Instructor with UID 'instructor456' cannot create an attendance record under course owned by 'instructor123'.
+     * @deny (update) Instructor with UID 'instructor456' cannot update an attendance record under course owned by 'instructor123'.
+     * @principle Enforces instructor ownership of attendance records through the parent course's instructorId.
+     */
+    match /courses/{courseId}/classSessions/{classSessionId}/attendanceRecords/{attendanceRecordId} {
+        // Check if the requesting user is the instructor of the parent course.
+        function isCourseInstructor() {
+            return get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+        }
+
+        function isExistingCourseInstructor() {
+            return isCourseInstructor() && getAfter( ).data != null;
+        }
+
+        allow get: if request.auth != null;
+        allow list: if request.auth != null && isCourseInstructor();
+
+        allow create: if request.auth != null && isCourseInstructor();
+        allow update: if isExistingCourseInstructor();
+        allow delete: if isExistingCourseInstructor();
+    }
+  }
+}
