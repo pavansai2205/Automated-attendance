@@ -101,8 +101,6 @@ service cloud.firestore {
      * Students can create their own records. Instructors can read records for their courses.
      */
     match /attendanceRecords/{attendanceRecordId} {
-      // Instructors can list all attendance records for the dashboard.
-      allow list, read: if isInstructor();
 
       // A student can create their own attendance record.
       allow create: if request.auth.uid == request.resource.data.studentId;
@@ -110,9 +108,8 @@ service cloud.firestore {
       // Students can read their own attendance records.
       allow read: if request.auth.uid == resource.data.studentId;
       
-      // Students can list their own attendance records.
-      allow list: if request.auth.uid == request.query.where.studentId;
-
+      // Allow listing for instructors, and for students on their own records.
+      allow list: if isInstructor() || request.auth.uid == request.query.where.studentId;
 
       // Nobody can update or delete records to maintain data integrity.
       allow update, delete: if false;
