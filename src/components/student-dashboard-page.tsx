@@ -135,42 +135,47 @@ export default function StudentDashboardPage() {
             </Card>
           </CardContent>
         </Card>
-        <Card>
-          <CardHeader>
-            <CardTitle>Recent Activity</CardTitle>
-            <CardDescription>Your last 5 attendance records.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {isLoading ? (
-              <div className="flex justify-center">
-                <Loader2 className="h-8 w-8 animate-spin" />
-              </div>
-            ) : (
-              <ul className="space-y-2">
-                {latestFiveRecords && latestFiveRecords.length > 0 ? (
-                  latestFiveRecords.map((record) => (
-                    <li
-                      key={record.id}
-                      className="flex justify-between items-center p-2 rounded-md even:bg-secondary"
-                    >
-                      <div>
-                        <span>{record.timestamp.toDate().toLocaleDateString()}</span>
-                        <span className="text-xs text-muted-foreground ml-2">
-                          {record.classSessionId}
-                        </span>
-                      </div>
-                      <Badge variant={getStatusInfo(record.status).badge as any}>
-                        {record.status}
-                      </Badge>
-                    </li>
-                  ))
+        
+        <div className="grid md:grid-cols-2 gap-6">
+            <Card>
+            <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>Your last 5 attendance records.</CardDescription>
+            </CardHeader>
+            <CardContent>
+                {isLoading ? (
+                <div className="flex justify-center">
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                </div>
                 ) : (
-                  <p className="text-muted-foreground text-sm">No records to display.</p>
+                <ul className="space-y-2">
+                    {latestFiveRecords && latestFiveRecords.length > 0 ? (
+                    latestFiveRecords.map((record) => (
+                        <li
+                        key={record.id}
+                        className="flex justify-between items-center p-2 rounded-md even:bg-secondary"
+                        >
+                        <div>
+                            <span>{record.timestamp.toDate().toLocaleDateString()}</span>
+                            <span className="text-xs text-muted-foreground ml-2">
+                            {record.classSessionId}
+                            </span>
+                        </div>
+                        <Badge variant={getStatusInfo(record.status).badge as any}>
+                            {record.status}
+                        </Badge>
+                        </li>
+                    ))
+                    ) : (
+                    <p className="text-muted-foreground text-sm">No records to display.</p>
+                    )}
+                </ul>
                 )}
-              </ul>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+            </Card>
+
+            <FaceRegistration />
+        </div>
     </div>
   );
 }
