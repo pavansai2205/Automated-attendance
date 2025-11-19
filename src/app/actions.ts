@@ -7,7 +7,7 @@ import { registerFace } from '@/ai/flows/register-face';
 import { verifyStudentFace } from '@/ai/flows/verify-student-face';
 import { detectFaceAndMarkAttendance } from '@/ai/flows/detect-face';
 import { initializeFirebase } from '@/firebase/server-init';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where, getDoc, Timestamp } from 'firebase/firestore';
 
 const { firestore } = initializeFirebase();
 
@@ -171,8 +171,8 @@ export async function handleCreateClassSession(courseId: string, startTime: Date
         
         const newSession = {
             courseId, // Denormalizing for security rule convenience
-            startTime: serverTimestamp.fromDate(startTime),
-            endTime: serverTimestamp.fromDate(endTime),
+            startTime: Timestamp.fromDate(startTime),
+            endTime: Timestamp.fromDate(endTime),
         };
 
         await addDoc(classSessionsRef, newSession);
@@ -181,6 +181,55 @@ export async function handleCreateClassSession(courseId: string, startTime: Date
     } catch (error) {
         console.error('Error creating class session:', error);
         return { success: false, error: 'Failed to create class session.' };
+    }
+}
+
+export async function handleGenerateReport(courseId: string, startDate: Date, endDate: Date) {
+    try {
+        // 1. Fetch all students
+        const studentsQuery = query(collection(firestore, 'users'), where('roleId', '==', 'student'));
+        const studentsSnapshot = await getDocs(studentsQuery);
+        const students = studentsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as any[];
+
+        // 2. Fetch all class sessions for the course within the date range
+        const classSessionsQuery = query(
+            collection(firestore, 'courses', courseId, 'classSessions'),
+            where('startTime', '>=', startDate),
+            where('startTime', '<=', endDate)
+        );
+        const classSessionsSnapshot = await getDocs(classSessionsQuery);
+        const classSessions = classSessionsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() as { startTime: Timestamp } }));
+
+        if (classSessions.length === 0) {
+            return { success: true, report: [] }; // No sessions, so empty report
+        }
+
+        // 3. Fetch all attendance records for those sessions
+        const sessionIds = classSessions.map(s => s.id);
+        // Firestore 'in' queries are limited to 30 items. If more sessions, this would need batching.
+        const attendanceQuery = query(collection(firestore, 'attendanceRecords'), where('classSessionId', 'in', sessionIds));
+        const attendanceSnapshot = await getDocs(attendanceQuery);
+        const attendanceRecords = attendanceSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+        // 4. Compile the report
+        const reportData: any[] = [];
+        for (const student of students) {
+            for (const session of classSessions) {
+                const record = attendanceRecords.find(r => r.studentId === student.id && r.classSessionId === session.id);
+                reportData.push({
+                    studentId: student.id,
+                    studentName: `${student.firstName} ${student.lastName}`,
+                    date: session.startTime.toDate().toLocaleDateString(),
+                    status: record ? record.status : 'Absent',
+                });
+            }
+        }
+
+        return { success: true, report: reportData };
+
+    } catch (error) {
+        console.error('Error generating report:', error);
+        return { success: false, error: 'Failed to generate report.' };
     }
 }
     

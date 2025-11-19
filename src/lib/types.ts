@@ -5,7 +5,7 @@ export type AttendanceStatus = 'Present' | 'Absent' | 'Late';
 export interface Student {
   id: string;
   firstName: string;
-  lastName: string;
+  lastName:string;
   email: string;
   roleId: string;
   faceTemplate?: string;
@@ -19,7 +19,8 @@ export interface Student {
 export interface Course {
   id: string;
   name: string;
-  students: Student[];
+  description: string;
+  instructorId: string;
 }
 
 export interface AttendanceRecord {
@@ -30,4 +31,10 @@ export interface AttendanceRecord {
     status: string;
 }
 
+export interface ReportData {
+    studentId: string;
+    studentName: string;
+    date: string;
+    status: AttendanceStatus;
+}
     
