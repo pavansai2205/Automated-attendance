@@ -65,15 +65,29 @@ export default function LoginPage() {
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists() && userDoc.data().roleId === values.roleId) {
-          // 3. Role matches, proceed to dashboard
+          
+          // 3. Set custom claim for the user's role to sync permissions
+          await fetch('/api/set-role', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: user.uid, role: values.roleId }),
+          });
+
+          // 4. Force refresh the token to get the custom claim immediately
+          await user.getIdToken(true);
+
+          // 5. Role matches, proceed to dashboard
           router.push('/');
+
         } else {
-          // 4. Role does not match, sign out and show error
+          // Role does not match, sign out and show error
           await signOut(auth);
           toast({
             variant: 'destructive',
             title: 'Login Failed',
-            description: `You are not registered as a/an ${values.roleId}. Please select the correct role.`,
+            description: userDoc.exists() 
+              ? `You are not registered as a/an ${values.roleId}. Please select the correct role.`
+              : 'No user record found. Please sign up first.',
           });
           setIsLoading(false);
         }
