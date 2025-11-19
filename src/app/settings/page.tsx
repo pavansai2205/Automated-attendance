@@ -8,6 +8,7 @@ import { useUser } from "@/firebase";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
+import FaceRegistration from "@/components/face-registration";
 
 export default function SettingsPage() {
   const { user, isUserLoading } = useUser();
@@ -33,16 +34,17 @@ export default function SettingsPage() {
       </Sidebar>
       <SidebarInset>
         <AppHeader />
-        <main className="p-4 lg:p-6">
+        <main className="p-4 lg:p-6 space-y-6">
           <Card>
             <CardHeader>
               <CardTitle>Settings</CardTitle>
               <CardDescription>Manage your application settings.</CardDescription>
             </CardHeader>
             <CardContent>
-              <p>Settings functionality will be implemented here.</p>
+              <p>General settings will be implemented here.</p>
             </CardContent>
           </Card>
+          <FaceRegistration />
         </main>
       </SidebarInset>
     </SidebarProvider>

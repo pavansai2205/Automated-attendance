@@ -26,6 +26,10 @@
         "roleId": {
           "type": "string",
           "description": "Reference to Role. (Relationship: Role 1:N User)"
+        },
+        "faceTemplate": {
+          "type": "string",
+          "description": "A base64 encoded data URI of the user's registered face for recognition."
         }
       },
       "required": [

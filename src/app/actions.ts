@@ -4,9 +4,10 @@ import { summarizeAttendanceTrends } from '@/ai/flows/summarize-attendance-trend
 import { generateAbsenceJustification, type AbsenceJustificationInput } from '@/ai/flows/generate-absence-justification';
 import { detectFaceAndMarkAttendance } from '@/ai/flows/detect-face';
 import { recognizeStudentFace } from '@/ai/flows/recognize-face';
+import { registerFace } from '@/ai/flows/register-face';
 import { course } from '@/lib/data';
 import { initializeFirebase } from '@/firebase/server-init';
-import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
 
 const { firestore } = initializeFirebase();
 
@@ -70,14 +71,33 @@ export async function handleMarkAttendance(photoDataUri: string, studentId: stri
 
 export async function handleRecognizeAndMarkAttendance(photoDataUri: string) {
   try {
-    const studentDirectory = JSON.stringify(course.students.map(s => ({ id: s.id, name: s.name })));
-    const { recognizedStudentId } = await recognizeStudentFace({ photoDataUri, studentDirectory });
+    // 1. Fetch all user documents that have a face template
+    const usersQuery = query(collection(firestore, 'users'), where('faceTemplate', '!=', null));
+    const usersSnapshot = await getDocs(usersQuery);
+    const studentDirectory = usersSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return { 
+            id: doc.id, 
+            name: `${data.firstName} ${data.lastName}`,
+            faceTemplate: data.faceTemplate 
+        };
+    });
+
+    if (studentDirectory.length === 0) {
+        return { success: false, error: 'No students have registered their face yet.' };
+    }
+
+    // 2. Send to recognition flow
+    const { recognizedStudentId } = await recognizeStudentFace({ 
+        photoDataUri, 
+        studentDirectory: JSON.stringify(studentDirectory) 
+    });
 
     if (!recognizedStudentId) {
       return { success: false, error: 'No student recognized in the photo.' };
     }
     
-    const student = course.students.find(s => s.id === recognizedStudentId);
+    const student = studentDirectory.find(s => s.id === recognizedStudentId);
     if (!student) {
         return { success: false, error: 'Recognized student not found in directory.' };
     }
@@ -99,4 +119,23 @@ export async function handleRecognizeAndMarkAttendance(photoDataUri: string) {
     console.error(error);
     return { success: false, error: 'Failed to recognize student or mark attendance.' };
   }
+}
+
+export async function handleRegisterFace(photoDataUri: string, userId: string) {
+    try {
+        const { faceRegistered } = await registerFace({ photoDataUri });
+        if (!faceRegistered) {
+            return { success: false, error: 'No face detected in the photo. Please try again.' };
+        }
+
+        const userRef = doc(firestore, 'users', userId);
+        await updateDoc(userRef, {
+            faceTemplate: photoDataUri
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error registering face:', error);
+        return { success: false, error: 'Failed to register face.' };
+    }
 }
