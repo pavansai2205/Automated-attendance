@@ -15,7 +15,7 @@ export default function FaceRegistration() {
   const firestore = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(true); // Assume true initially
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
@@ -24,37 +24,52 @@ export default function FaceRegistration() {
 
   const hasRegisteredFace = !!userData?.faceTemplate;
 
-  const getCameraPermission = useCallback(async () => {
-    if (hasRegisteredFace) {
-      setHasCameraPermission(false);
-      return;
-    }
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      setHasCameraPermission(true);
+   useEffect(() => {
+    // This effect now only handles camera initialization and cleanup
+    let stream: MediaStream;
 
-      if (videoRef.current) {
-        videoRef.current.srcObject = stream;
+    const getCameraPermission = async () => {
+      // Only request camera if the user hasn't registered a face
+      if (!hasRegisteredFace) {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ video: true });
+          setHasCameraPermission(true);
+
+          if (videoRef.current) {
+            videoRef.current.srcObject = stream;
+          }
+        } catch (error) {
+          console.error('Error accessing camera:', error);
+          setHasCameraPermission(false);
+        }
       }
-    } catch (error) {
-      console.error('Error accessing camera:', error);
-      setHasCameraPermission(false);
-    }
-  }, [hasRegisteredFace]);
+    };
 
-  useEffect(() => {
     getCameraPermission();
 
     return () => {
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      // Clean up the stream when the component unmounts
+      if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
+      if (videoRef.current && videoRef.current.srcObject) {
+         const cleanupStream = videoRef.current.srcObject as MediaStream;
+         cleanupStream.getTracks().forEach(track => track.stop());
+      }
     };
-  }, [getCameraPermission]);
+  }, [hasRegisteredFace]); // Only re-run if registration status changes
+
 
   const registerFace = async () => {
     if (!videoRef.current || !canvasRef.current || !user) return;
+     if (!hasCameraPermission) {
+        toast({
+            variant: 'destructive',
+            title: 'Camera Access Required',
+            description: 'Please enable camera permissions in your browser settings to register your face.',
+        });
+        return;
+    }
 
     setIsProcessing(true);
 
@@ -93,7 +108,7 @@ export default function FaceRegistration() {
             <CardHeader>
                 <CardTitle>Face Registration</CardTitle>
             </CardHeader>
-            <CardContent className='flex items-center justify-center'>
+            <CardContent className='flex items-center justify-center h-24'>
                  <Loader2 className="h-8 w-8 animate-spin" />
             </CardContent>
         </Card>
@@ -137,7 +152,7 @@ export default function FaceRegistration() {
         <div className="w-full max-w-md aspect-video bg-muted rounded-md overflow-hidden relative">
           <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
           <canvas ref={canvasRef} className="hidden" />
-          {hasCameraPermission === null && !hasRegisteredFace && (
+          {hasCameraPermission === null && (
             <div className="absolute inset-0 flex items-center justify-center">
               <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
@@ -145,7 +160,7 @@ export default function FaceRegistration() {
         </div>
       </CardContent>
       <CardFooter>
-        <Button onClick={registerFace} disabled={!hasCameraPermission || isProcessing} className="w-full">
+        <Button onClick={registerFace} disabled={isProcessing} className="w-full">
           {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
           {isProcessing ? 'Processing...' : 'Capture and Register Face'}
         </Button>
