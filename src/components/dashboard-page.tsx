@@ -113,7 +113,7 @@ export default function DashboardPage() {
   };
   
     // This is mock data for now. A real implementation would query historical data.
-    const getAttendanceDataForChart = () => {
+    const chartData = useMemo(() => {
         const last7Days = Array.from({ length: 7 }).map((_, i) => {
             const d = new Date();
             d.setDate(d.getDate() - i);
@@ -121,17 +121,15 @@ export default function DashboardPage() {
         }).reverse();
 
         return last7Days.map(date => {
-            const present = Math.floor(Math.random() * (totalStudents - 2)) + 2;
-            const absent = totalStudents - present;
+            const present = Math.floor(Math.random() * (totalStudents > 0 ? totalStudents : 10 - 2)) + 2;
+            const absent = (totalStudents > 0 ? totalStudents : 10) - present;
             return {
             date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
             Present: present,
             Absent: absent,
             };
         });
-    };
-
-    const chartData = getAttendanceDataForChart();
+    }, [totalStudents]);
 
 
   const isLoading = isLoadingStudents || isLoadingAttendance;
@@ -185,7 +183,7 @@ export default function DashboardPage() {
           <CardContent>
             {summary && <p className="text-sm text-foreground/80 mb-4">{summary}</p>}
             {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-            <Button onClick={onSummarize} disabled={isPending || isLoading} className="w-full">
+            <Button onClick={onSummarize} disabled={isPending} className="w-full">
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               {isPending ? 'Analyzing...' : 'Summarize Trends'}
             </Button>
@@ -271,5 +269,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-
-    
