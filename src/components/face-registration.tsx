@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Camera, Loader2, UserCheck, RefreshCw } from 'lucide-react';
+import { Camera, Loader2, RefreshCw, Upload } from 'lucide-react';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { handleUpdateFaceTemplate } from '@/app/actions';
@@ -16,6 +16,7 @@ export default function FaceRegistration() {
   const firestore = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(true);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -58,29 +59,9 @@ export default function FaceRegistration() {
     };
   }, [isEditing]);
 
-  const updateFace = async () => {
-    if (!videoRef.current || !canvasRef.current || !user) return;
-    if (!hasCameraPermission) {
-      toast({
-        variant: 'destructive',
-        title: 'Camera Access Required',
-        description: 'Please enable camera permissions in your browser settings to update your picture.',
-      });
-      return;
-    }
-
+  const processAndUpdate = async (photoDataUri: string) => {
+    if (!user) return;
     setIsProcessing(true);
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if (context) {
-      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-    }
-
-    const photoDataUri = canvas.toDataURL('image/jpeg');
 
     const result = await handleUpdateFaceTemplate(photoDataUri, user.uid);
 
@@ -99,7 +80,60 @@ export default function FaceRegistration() {
     }
 
     setIsProcessing(false);
+  }
+
+  const captureFromWebcam = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    if (!hasCameraPermission) {
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Required',
+        description: 'Please enable camera permissions to update your picture.',
+      });
+      return;
+    }
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const context = canvas.getContext('2d');
+    if (context) {
+      context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+    }
+
+    const photoDataUri = canvas.toDataURL('image/jpeg');
+    await processAndUpdate(photoDataUri);
   };
+  
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        toast({
+            variant: 'destructive',
+            title: 'Invalid File Type',
+            description: 'Please select an image file.',
+        });
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const photoDataUri = e.target?.result as string;
+        if (photoDataUri) {
+            await processAndUpdate(photoDataUri);
+        }
+    };
+    reader.readAsDataURL(file);
+    
+    // Reset file input value to allow re-uploading the same file
+    if(event.target) {
+        event.target.value = '';
+    }
+  };
+
 
   if (isUserDocLoading) {
     return (
@@ -120,7 +154,7 @@ export default function FaceRegistration() {
         <CardHeader>
           <CardTitle>Update Your Profile Picture</CardTitle>
           <CardDescription>
-            Capture a clear photo of your face.
+            Use your webcam or upload a clear photo of your face.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col items-center gap-4">
@@ -128,7 +162,7 @@ export default function FaceRegistration() {
             <Alert variant="destructive" className="w-full">
               <AlertTitle>Camera Access Denied</AlertTitle>
               <AlertDescription>
-                Please enable camera permissions in your browser settings to update your picture.
+                Enable camera permissions to use your webcam. You can still upload a file.
               </AlertDescription>
             </Alert>
           )}
@@ -142,10 +176,21 @@ export default function FaceRegistration() {
             )}
           </div>
         </CardContent>
-        <CardFooter className="grid grid-cols-2 gap-2">
-          <Button onClick={updateFace} disabled={isProcessing}>
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-            {isProcessing ? 'Saving...' : 'Save New Picture'}
+        <CardFooter className="grid grid-cols-1 md:grid-cols-3 gap-2">
+            <input
+                type="file"
+                ref={fileInputRef}
+                onChange={handleFileChange}
+                className="hidden"
+                accept="image/*"
+            />
+            <Button onClick={() => fileInputRef.current?.click()} disabled={isProcessing}>
+                <Upload className="mr-2 h-4 w-4" />
+                Upload from Device
+            </Button>
+            <Button onClick={captureFromWebcam} disabled={isProcessing || !hasCameraPermission}>
+                {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                {isProcessing ? 'Saving...' : 'Use Webcam'}
           </Button>
           <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isProcessing}>
             Cancel
