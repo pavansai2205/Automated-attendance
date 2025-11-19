@@ -129,11 +129,11 @@ service cloud.firestore {
         // Instructors can create marks for courses they teach.
         allow create: if isInstructor() && isCourseInstructor(request.resource.data.courseId);
         
-        // Students can read their own marks. Instructors can read any marks.
-        allow read: if request.auth.uid == resource.data.studentId || isInstructor();
+        // Students can read their own marks. Instructors can read any marks for courses they teach.
+        allow read: if request.auth.uid == resource.data.studentId || (isInstructor() && isCourseInstructor(resource.data.courseId));
 
-        // Students can only list their own marks. Instructors can list all marks.
-        allow list: if isInstructor() || (request.query.where.studentId == request.auth.uid);
+        // Students can only list their own marks. Instructors can only list marks for courses they teach.
+        allow list: if (isInstructor() && isCourseInstructor(request.query.where.courseId)) || (request.query.where.studentId == request.auth.uid);
 
         // No one can update or delete to maintain integrity.
         allow update, delete: if false;
