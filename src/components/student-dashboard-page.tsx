@@ -14,7 +14,7 @@ import { Button } from '@/components/ui/button';
 import { Camera, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, Timestamp, orderBy, limit } from 'firebase/firestore';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { AttendanceRecord } from '@/lib/types';
 
@@ -24,20 +24,27 @@ export default function StudentDashboardPage() {
 
   const attendanceQuery = useMemo(() => {
     if (!user || !firestore) return null;
+    // Query is now simpler: just filter by studentId. Sorting happens client-side.
     return query(
       collection(firestore, 'attendanceRecords'),
-      where('studentId', '==', user.uid),
-      orderBy('timestamp', 'desc'),
-      limit(5) // Fetch last 5 records
+      where('studentId', '==', user.uid)
     );
   }, [user, firestore]);
 
   const { data: attendanceHistory, isLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  
+  // Sort and limit the data on the client after fetching
+  const sortedHistory = useMemo(() => {
+    if (!attendanceHistory) return [];
+    return attendanceHistory
+      .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())
+      .slice(0, 5);
+  }, [attendanceHistory]);
 
   const latestRecord = useMemo(() => {
-    if (!attendanceHistory || attendanceHistory.length === 0) return null;
-    return attendanceHistory[0];
-  }, [attendanceHistory]);
+    if (!sortedHistory || sortedHistory.length === 0) return null;
+    return sortedHistory[0];
+  }, [sortedHistory]);
 
   const getStatusInfo = (status: string) => {
     switch (status) {
@@ -126,8 +133,8 @@ export default function StudentDashboardPage() {
             </div>
           ) : (
             <ul className="space-y-2">
-              {attendanceHistory && attendanceHistory.length > 0 ? (
-                attendanceHistory.map((record) => (
+              {sortedHistory && sortedHistory.length > 0 ? (
+                sortedHistory.map((record) => (
                   <li
                     key={record.id}
                     className="flex justify-between items-center p-2 rounded-md even:bg-secondary"
