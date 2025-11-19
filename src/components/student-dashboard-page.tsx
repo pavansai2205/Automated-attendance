@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Camera, CheckCircle, Clock, CalendarDays } from 'lucide-react';
+import { Camera, CheckCircle, Clock, CalendarDays, User as UserIcon, Phone, Home, Shield } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
@@ -27,7 +27,7 @@ export default function StudentDashboardPage() {
     if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
-  const { data: userData } = useDoc(userDocRef);
+  const { data: userData, isLoading: isUserDataLoading } = useDoc(userDocRef);
 
   const attendanceQuery = useMemo(() => {
     if (!user || !firestore) return null;
@@ -37,7 +37,7 @@ export default function StudentDashboardPage() {
     );
   }, [user, firestore]);
 
-  const { data: attendanceHistory, isLoading } = useCollection<AttendanceRecord>(attendanceQuery);
+  const { data: attendanceHistory, isLoading: isAttendanceLoading } = useCollection<AttendanceRecord>(attendanceQuery);
   
   const sortedHistory = useMemo(() => {
     if (!attendanceHistory) return [];
@@ -80,97 +80,146 @@ export default function StudentDashboardPage() {
         };
     }
   };
-
+  
+  const isLoading = isUserDataLoading || isAttendanceLoading;
   const statusInfo = getStatusInfo(latestRecord?.status || 'None');
-  const displayName = userData ? `Welcome, ${userData.firstName} ${userData.lastName}!` : 'Welcome!';
+  const displayName = userData ? `Welcome, ${userData.firstName}!` : 'Welcome!';
 
   return (
-    <div className="grid gap-4 md:gap-6">
-       <FaceRegistration />
-      <Card>
-        <CardHeader>
-          <CardTitle>{displayName}</CardTitle>
-          <CardDescription>Here's a summary of your attendance.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>Latest Attendance</CardTitle>
-              {latestRecord && (
-                <Badge variant={statusInfo.badge as any}>{latestRecord.status}</Badge>
-              )}
-            </CardHeader>
-            <CardContent className="flex items-center gap-4">
-              {isLoading ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
-              ) : latestRecord ? (
-                <>
-                  {statusInfo.icon}
-                  <div>
-                    <p className="font-semibold">{statusInfo.text}</p>
-                    <p className="text-sm text-muted-foreground">
-                      On {latestRecord.timestamp.toDate().toLocaleDateString()} for session{' '}
-                      {latestRecord.classSessionId}
-                    </p>
-                  </div>
-                </>
-              ) : (
-                <p>No attendance records found yet.</p>
-              )}
-            </CardContent>
-            <CardFooter className='grid grid-cols-2 gap-2'>
-              <Button asChild className="w-full">
-                <Link href="/attendance">
-                  <Camera className="mr-2" />
-                  Go to Attendance Check-in
-                </Link>
-              </Button>
-               <Button asChild className="w-full" variant="outline">
-                <Link href="/timetable">
-                  <CalendarDays className="mr-2" />
-                  View Timetable
-                </Link>
-              </Button>
-            </CardFooter>
-          </Card>
-        </CardContent>
-      </Card>
-      <Card>
-        <CardHeader>
-          <CardTitle>Recent Activity</CardTitle>
-          <CardDescription>Your last 5 attendance records.</CardDescription>
-        </CardHeader>
-        <CardContent>
-          {isLoading ? (
-            <div className="flex justify-center">
-              <Loader2 className="h-8 w-8 animate-spin" />
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {latestFiveRecords && latestFiveRecords.length > 0 ? (
-                latestFiveRecords.map((record) => (
-                  <li
-                    key={record.id}
-                    className="flex justify-between items-center p-2 rounded-md even:bg-secondary"
-                  >
+    <div className="grid gap-4 md:gap-6 md:grid-cols-2">
+      <div className="space-y-6">
+        <FaceRegistration />
+        <Card>
+          <CardHeader>
+            <CardTitle>{displayName}</CardTitle>
+            <CardDescription>Here's a summary of your attendance.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Latest Attendance</CardTitle>
+                {latestRecord && (
+                  <Badge variant={statusInfo.badge as any}>{latestRecord.status}</Badge>
+                )}
+              </CardHeader>
+              <CardContent className="flex items-center gap-4">
+                {isLoading ? (
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                ) : latestRecord ? (
+                  <>
+                    {statusInfo.icon}
                     <div>
-                      <span>{record.timestamp.toDate().toLocaleDateString()}</span>
-                      <span className="text-xs text-muted-foreground ml-2">
-                        {record.classSessionId}
-                      </span>
+                      <p className="font-semibold">{statusInfo.text}</p>
+                      <p className="text-sm text-muted-foreground">
+                        On {latestRecord.timestamp.toDate().toLocaleDateString()} for session{' '}
+                        {latestRecord.classSessionId}
+                      </p>
                     </div>
-                    <Badge variant={getStatusInfo(record.status).badge as any}>
-                      {record.status}
-                    </Badge>
-                  </li>
-                ))
-              ) : (
-                <p className="text-muted-foreground text-sm">No records to display.</p>
-              )}
-            </ul>
+                  </>
+                ) : (
+                  <p>No attendance records found yet.</p>
+                )}
+              </CardContent>
+              <CardFooter className='grid grid-cols-2 gap-2'>
+                <Button asChild className="w-full">
+                  <Link href="/attendance">
+                    <Camera className="mr-2" />
+                    Go to Attendance Check-in
+                  </Link>
+                </Button>
+                <Button asChild className="w-full" variant="outline">
+                  <Link href="/timetable">
+                    <CalendarDays className="mr-2" />
+                    View Timetable
+                  </Link>
+                </Button>
+              </CardFooter>
+            </Card>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Your last 5 attendance records.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {isLoading ? (
+              <div className="flex justify-center">
+                <Loader2 className="h-8 w-8 animate-spin" />
+              </div>
+            ) : (
+              <ul className="space-y-2">
+                {latestFiveRecords && latestFiveRecords.length > 0 ? (
+                  latestFiveRecords.map((record) => (
+                    <li
+                      key={record.id}
+                      className="flex justify-between items-center p-2 rounded-md even:bg-secondary"
+                    >
+                      <div>
+                        <span>{record.timestamp.toDate().toLocaleDateString()}</span>
+                        <span className="text-xs text-muted-foreground ml-2">
+                          {record.classSessionId}
+                        </span>
+                      </div>
+                      <Badge variant={getStatusInfo(record.status).badge as any}>
+                        {record.status}
+                      </Badge>
+                    </li>
+                  ))
+                ) : (
+                  <p className="text-muted-foreground text-sm">No records to display.</p>
+                )}
+              </ul>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <UserIcon />
+            My Profile
+          </CardTitle>
+          <CardDescription>Your personal and contact information.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4 text-sm">
+          {isLoading ? (
+             <div className="flex justify-center items-center h-40">
+                <Loader2 className="h-8 w-8 animate-spin" />
+             </div>
+          ) : userData ? (
+            <>
+              <div className="font-semibold text-base">{`${userData.firstName} ${userData.lastName}`}</div>
+              <div className="text-muted-foreground">{userData.email}</div>
+              <div className="border-t border-border pt-4 mt-4 space-y-4">
+                <div className='flex items-center gap-3'>
+                    <Phone className='text-muted-foreground' />
+                    <span>{userData.phoneNumber || 'Not provided'}</span>
+                </div>
+                <div className='flex items-start gap-3'>
+                    <Home className='text-muted-foreground mt-1' />
+                    <span className='flex-1'>{userData.address || 'Not provided'}</span>
+                </div>
+              </div>
+              <div className="border-t border-border pt-4 mt-4 space-y-4">
+                <div className='font-medium flex items-center gap-2'><Shield /> Guardian Information</div>
+                <div className='flex items-center gap-3'>
+                    <UserIcon className='text-muted-foreground' />
+                    <span>{userData.parentName || 'Not provided'}</span>
+                </div>
+                 <div className='flex items-center gap-3'>
+                    <Phone className='text-muted-foreground' />
+                    <span>{userData.parentPhoneNumber || 'Not provided'}</span>
+                </div>
+              </div>
+            </>
+          ) : (
+            <p>Could not load profile information.</p>
           )}
         </CardContent>
       </Card>
+
     </div>
   );
 }
