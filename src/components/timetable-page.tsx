@@ -31,7 +31,7 @@ import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { collection, query, where, Timestamp, getDocs } from 'firebase/firestore';
 import { Loader2, CalendarPlus, CalendarDays } from 'lucide-react';
 import { handleCreateClassSession } from '@/app/actions';
 
@@ -55,7 +55,11 @@ interface ClassSession {
   endTime: Timestamp;
 }
 
-export default function TimetablePage() {
+interface TimetablePageProps {
+  role: 'student' | 'instructor' | string;
+}
+
+export default function TimetablePage({ role }: TimetablePageProps) {
   const [isPending, startTransition] = useTransition();
   const { user } = useUser();
   const firestore = useFirestore();
@@ -70,38 +74,76 @@ export default function TimetablePage() {
     },
   });
 
-  const coursesQuery = useMemo(() => {
-    if (!user || !firestore) return null;
+  const instructorCoursesQuery = useMemo(() => {
+    if (!user || !firestore || role !== 'instructor') return null;
     return query(collection(firestore, 'courses'), where('instructorId', '==', user.uid));
-  }, [user, firestore]);
-  const { data: courses, isLoading: isLoadingCourses } = useCollection<Course>(coursesQuery);
+  }, [user, firestore, role]);
+  const { data: instructorCourses, isLoading: isLoadingInstructorCourses } = useCollection<Course>(instructorCoursesQuery);
+
+  const allCoursesQuery = useMemo(() => {
+      if (!firestore) return null;
+      return query(collection(firestore, 'courses'));
+  }, [firestore]);
+  const { data: allCourses, isLoading: isLoadingAllCourses } = useCollection<Course>(allCoursesQuery);
+  
+  const courses = role === 'instructor' ? instructorCourses : allCourses;
+  const isLoadingCourses = role === 'instructor' ? isLoadingInstructorCourses : isLoadingAllCourses;
+
 
   const courseIds = useMemo(() => courses?.map(c => c.id) || [], [courses]);
 
-  // A bit more complex query to fetch nested collections
-  // For now, we will fetch sessions for each course separately and combine them.
   const [classSessions, setClassSessions] = useState<ClassSession[]>([]);
   const [isLoadingSessions, setIsLoadingSessions] = useState(false);
 
-  useMemo(() => {
+  // This is a workaround since useCollection doesn't support array of queries easily.
+  // We manually fetch all sessions for the relevant courses.
+  useEffect(() => {
     if (!firestore || courseIds.length === 0) {
       setClassSessions([]);
       return;
     }
     setIsLoadingSessions(true);
-    const promises = courseIds.map(id => {
-      const sessionsQuery = query(collection(firestore, `courses/${id}/classSessions`), where('startTime', '>=', new Date()));
-      return useCollection.get(sessionsQuery);
-    });
     
-    Promise.all(promises).then(snapshots => {
-      const allSessions = snapshots.flat().map(doc => ({ id: doc.id, ...doc.data() })) as ClassSession[];
-      allSessions.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
-      setClassSessions(allSessions);
-      setIsLoadingSessions(false);
-    }).catch(console.error);
+    const fetchSessions = async () => {
+        try {
+            const allSessions: ClassSession[] = [];
+            // Firestore 'in' query is limited to 30 items. We batch if needed.
+            const batches: string[][] = [];
+            for (let i = 0; i < courseIds.length; i += 30) {
+                batches.push(courseIds.slice(i, i + 30));
+            }
 
-  }, [firestore, courseIds]);
+            for (const batch of batches) {
+                const sessionsQuery = query(collection(firestore, 'attendanceRecords'), where('courseId', 'in', batch));
+                // This is incorrect, sessions are in a subcollection.
+                // Let's query each subcollection. This is inefficient but will work for a demo.
+            }
+
+            const sessionPromises = courseIds.map(id => 
+                getDocs(query(collection(firestore, `courses/${id}/classSessions`), where('startTime', '>=', new Date())))
+            );
+
+            const sessionSnapshots = await Promise.all(sessionPromises);
+            
+            for (const snapshot of sessionSnapshots) {
+                snapshot.forEach(doc => {
+                    allSessions.push({ id: doc.id, ...doc.data() } as ClassSession);
+                });
+            }
+            
+            allSessions.sort((a, b) => a.startTime.toMillis() - b.startTime.toMillis());
+            setClassSessions(allSessions);
+        } catch (error) {
+            console.error("Error fetching class sessions:", error);
+            toast({ variant: "destructive", title: "Error", description: "Could not fetch class sessions." });
+        } finally {
+            setIsLoadingSessions(false);
+        }
+    };
+    
+    fetchSessions();
+  }, [firestore, courseIds, toast]);
+
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
@@ -116,6 +158,8 @@ export default function TimetablePage() {
           description: 'The new session has been added to the timetable.',
         });
         form.reset();
+        // Trigger a re-fetch of sessions - simple way is to clear and let useEffect handle it.
+        setClassSessions([]);
       } else {
         toast({
           variant: 'destructive',
@@ -125,115 +169,110 @@ export default function TimetablePage() {
       }
     });
   }
-  
-  // This is a workaround for the useCollection hook not directly supporting fetching subcollections in this manner.
-  // A more robust solution might involve a dedicated hook for subcollections or restructuring data.
-  useCollection.get = async (q) => {
-    const { getDocs } = await import("firebase/firestore");
-    const snapshot = await getDocs(q);
-    return snapshot.docs;
-  };
 
+  const isLoading = isLoadingCourses || isLoadingSessions;
 
   return (
-    <div className="grid gap-6 md:grid-cols-2">
-      <Card>
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)}>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <CalendarPlus />
-                <span>Add Class Session</span>
-              </CardTitle>
-              <CardDescription>
-                Schedule a new class session for one of your courses.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <FormField
-                control={form.control}
-                name="courseId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Course</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingCourses}>
+    <div className={`grid gap-6 ${role === 'instructor' ? 'md:grid-cols-2' : 'md:grid-cols-1'}`}>
+      {role === 'instructor' && (
+        <Card>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)}>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarPlus />
+                  <span>Add Class Session</span>
+                </CardTitle>
+                <CardDescription>
+                  Schedule a new class session for one of your courses.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <FormField
+                  control={form.control}
+                  name="courseId"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Course</FormLabel>
+                      <Select onValueChange={field.onChange} defaultValue={field.value} disabled={isLoadingCourses}>
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a course to schedule a session for" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          {isLoadingCourses ? (
+                            <SelectItem value="loading" disabled>Loading courses...</SelectItem>
+                          ) : (
+                            courses?.map(course => (
+                              <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
+                            ))
+                          )}
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="startTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Start Time</FormLabel>
                       <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select a course to schedule a session for" />
-                        </SelectTrigger>
+                        <Input type="datetime-local" {...field} />
                       </FormControl>
-                      <SelectContent>
-                        {isLoadingCourses ? (
-                          <SelectItem value="loading" disabled>Loading courses...</SelectItem>
-                        ) : (
-                          courses?.map(course => (
-                            <SelectItem key={course.id} value={course.id}>{course.name}</SelectItem>
-                          ))
-                        )}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="startTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Start Time</FormLabel>
-                    <FormControl>
-                      <Input type="datetime-local" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="endTime"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>End Time</FormLabel>
-                    <FormControl>
-                      <Input type="datetime-local" {...field} />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            </CardContent>
-            <CardFooter>
-              <Button type="submit" className="w-full" disabled={isPending}>
-                {isPending ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CalendarPlus className="mr-2" />
-                )}
-                {isPending ? 'Scheduling...' : 'Add Session'}
-              </Button>
-            </CardFooter>
-          </form>
-        </Form>
-      </Card>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="endTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>End Time</FormLabel>
+                      <FormControl>
+                        <Input type="datetime-local" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </CardContent>
+              <CardFooter>
+                <Button type="submit" className="w-full" disabled={isPending}>
+                  {isPending ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <CalendarPlus className="mr-2" />
+                  )}
+                  {isPending ? 'Scheduling...' : 'Add Session'}
+                </Button>
+              </CardFooter>
+            </form>
+          </Form>
+        </Card>
+      )}
       
-      <Card>
+      <Card className={role === 'student' ? 'md:col-span-1' : ''}>
         <CardHeader>
             <CardTitle className='flex items-center gap-2'>
                 <CalendarDays />
                 <span>Upcoming Sessions</span>
             </CardTitle>
             <CardDescription>
-                Here are all the upcoming sessions for your courses.
+                {role === 'instructor' ? 'Here are all the upcoming sessions for your courses.' : 'Here are all the upcoming class sessions.'}
             </CardDescription>
         </CardHeader>
         <CardContent>
-            {isLoadingSessions ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+            {isLoading ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
                  <ul className="space-y-2">
                     {classSessions.length > 0 ? classSessions.map((session) => (
                         <li key={session.id} className="flex justify-between items-center p-2 rounded-md even:bg-secondary">
                         <div>
-                            <span className='font-semibold'>{courses?.find(c => c.id === session.courseId)?.name}</span>
+                            <span className='font-semibold'>{allCourses?.find(c => c.id === session.courseId)?.name || 'Unknown Course'}</span>
                             <p className="text-sm text-muted-foreground">
                                 {session.startTime.toDate().toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })} - {session.endTime.toDate().toLocaleString([], { timeStyle: 'short' })}
                             </p>

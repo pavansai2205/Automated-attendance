@@ -11,7 +11,7 @@ import {
 } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Camera, CheckCircle, Clock } from 'lucide-react';
+import { Camera, CheckCircle, Clock, CalendarDays } from 'lucide-react';
 import Link from 'next/link';
 import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
@@ -118,11 +118,17 @@ export default function StudentDashboardPage() {
                 <p>No attendance records found yet.</p>
               )}
             </CardContent>
-            <CardFooter>
+            <CardFooter className='grid grid-cols-2 gap-2'>
               <Button asChild className="w-full">
                 <Link href="/attendance">
                   <Camera className="mr-2" />
                   Go to Attendance Check-in
+                </Link>
+              </Button>
+               <Button asChild className="w-full" variant="outline">
+                <Link href="/timetable">
+                  <CalendarDays className="mr-2" />
+                  View Timetable
                 </Link>
               </Button>
             </CardFooter>
