@@ -24,6 +24,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    
+    function isInstructor() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
+    }
 
     /**
      * @description Grants access to a user's profile based on their UID.
@@ -31,10 +35,6 @@ service cloud.firestore {
      * Instructors are allowed to list users for the dashboard view.
      */
     match /users/{userId} {
-      function isInstructor() {
-        return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
-      }
-
       allow read, delete: if request.auth.uid == userId;
       allow create: if request.auth.uid == userId && request.resource.data.id == userId;
       allow update: if request.auth.uid == userId && request.resource.data.roleId == resource.data.roleId;
@@ -67,10 +67,6 @@ service cloud.firestore {
      * @description Grants access to courses based on instructor ownership.
      */
     match /courses/{courseId} {
-        function isInstructor() {
-          return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
-        }
-
         function isOwner() {
             return request.auth.uid == resource.data.instructorId;
         }
@@ -104,7 +100,7 @@ service cloud.firestore {
       // Instructors can read any attendance records (for generating reports).
       // A more restrictive rule could be to check if the instructor owns the course
       // related to the class session of the attendance record.
-      allow read: if request.auth.uid == resource.data.studentId || get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
+      allow read: if request.auth.uid == resource.data.studentId || isInstructor();
 
       // Nobody can update or delete records to maintain data integrity.
       allow update, delete: if false;
