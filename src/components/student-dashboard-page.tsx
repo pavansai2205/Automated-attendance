@@ -17,7 +17,6 @@ import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { AttendanceRecord } from '@/lib/types';
-import FaceRegistration from './face-registration';
 
 export default function StudentDashboardPage() {
   const { user } = useUser();
@@ -173,8 +172,7 @@ export default function StudentDashboardPage() {
                 )}
             </CardContent>
             </Card>
-
-            <FaceRegistration />
+            
         </div>
     </div>
   );
