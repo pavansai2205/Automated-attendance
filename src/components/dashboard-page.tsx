@@ -61,16 +61,22 @@ export default function DashboardPage() {
   const firestore = useFirestore();
 
   // 1. Fetch all students in realtime
-  const studentsQuery = firestore ? query(collection(firestore, 'users'), where('roleId', '==', 'student')) : null;
+  const studentsQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), where('roleId', '==', 'student'));
+  }, [firestore]);
   const { data: studentsData, isLoading: isLoadingStudents } = useCollection<Omit<Student, 'attendanceHistory' | 'attendanceStatus'>>(studentsQuery);
 
-  // 2. Fetch today's attendance records in realtime
-  const { start: startOfToday, end: endOfToday } = getDayRange(new Date());
-  const attendanceQuery = firestore ? query(
+  // 2. Fetch today's attendance records in realtime, with a stable date range
+  const todayRange = useMemo(() => getDayRange(new Date()), []);
+  const attendanceQuery = useMemo(() => {
+    if (!firestore) return null;
+    return query(
         collection(firestore, 'attendanceRecords'),
-        where('timestamp', '>=', Timestamp.fromDate(startOfToday)),
-        where('timestamp', '<=', Timestamp.fromDate(endOfToday))
-      ) : null;
+        where('timestamp', '>=', Timestamp.fromDate(todayRange.start)),
+        where('timestamp', '<=', Timestamp.fromDate(todayRange.end))
+      )
+  }, [firestore, todayRange]);
   const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
   
   // 3. Combine students and their attendance status
@@ -183,7 +189,7 @@ export default function DashboardPage() {
           <CardContent>
             {summary && <p className="text-sm text-foreground/80 mb-4">{summary}</p>}
             {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-            <Button onClick={onSummarize} disabled={isPending} className="w-full">
+            <Button onClick={onSummarize} disabled={isPending || isLoading} className="w-full">
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               {isPending ? 'Analyzing...' : 'Summarize Trends'}
             </Button>
