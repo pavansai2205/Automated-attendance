@@ -18,6 +18,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { useAuth } from '@/firebase';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { sendPasswordResetEmail } from 'firebase/auth';
@@ -59,8 +60,16 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <Card className="w-full max-w-md">
+    <div className="relative flex min-h-screen items-center justify-center">
+       <Image
+        src="https://picsum.photos/seed/forgot-password/1920/1080"
+        alt="Background"
+        fill
+        className="object-cover -z-10"
+        data-ai-hint="abstract background"
+      />
+      <div className="absolute inset-0 bg-black/50 -z-10" />
+      <Card className="w-full max-w-md bg-white/90 backdrop-blur-sm dark:bg-black/80">
         <CardHeader>
           <CardTitle>Forgot Password</CardTitle>
           <CardDescription>
