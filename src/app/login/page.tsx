@@ -73,7 +73,7 @@ export default function LoginPage() {
           toast({
             variant: 'destructive',
             title: 'Login Failed',
-            description: `You do not have the permissions of a/an ${values.roleId}.`,
+            description: `You are not registered as a/an ${values.roleId}. Please select the correct role.`,
           });
           setIsLoading(false);
         }
@@ -142,7 +142,7 @@ export default function LoginPage() {
                       </SelectContent>
                     </Select>
                      <FormDescription>
-                      Select the role you are signing in as.
+                      You must select the role you registered with.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
