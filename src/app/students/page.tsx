@@ -22,21 +22,19 @@ export default function StudentsPage() {
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
-  
-  useEffect(() => {
-    if(userData && userData.roleId !== 'instructor') {
-      router.push('/');
-    }
-  }, [userData, router])
-
-
   const isLoading = isUserLoading || isUserDocLoading;
   const role = userData?.roleId;
+
+  useEffect(() => {
+    if (!isLoading) {
+      if (!user) {
+        router.push('/login');
+      } else if (role && role !== 'instructor') {
+        router.push('/');
+      }
+    }
+  }, [user, role, isLoading, router]);
+
 
   if (isLoading || !user || role !== 'instructor') {
     return (
