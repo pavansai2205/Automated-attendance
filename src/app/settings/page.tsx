@@ -9,6 +9,7 @@ import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import { doc } from "firebase/firestore";
 import { AuthGuard } from "@/components/auth-guard";
+import { ThemeSwitcher } from "@/components/theme-switcher";
 
 function SettingsContent() {
   const { user, isUserLoading } = useUser();
@@ -43,8 +44,8 @@ function SettingsContent() {
               <CardTitle>Settings</CardTitle>
               <CardDescription>Manage your application settings.</CardDescription>
             </CardHeader>
-            <CardContent>
-              <p>General settings will be implemented here.</p>
+            <CardContent className="space-y-4">
+              <ThemeSwitcher />
             </CardContent>
           </Card>
         </main>
