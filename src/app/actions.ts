@@ -2,12 +2,12 @@
 
 import { summarizeAttendanceTrends } from '@/ai/flows/summarize-attendance-trends';
 import { generateAbsenceJustification, type AbsenceJustificationInput } from '@/ai/flows/generate-absence-justification';
-import { detectFaceAndMarkAttendance } from '@/ai/flows/detect-face';
 import { recognizeStudentFace } from '@/ai/flows/recognize-face';
 import { registerFace } from '@/ai/flows/register-face';
+import { verifyStudentFace } from '@/ai/flows/verify-student-face';
 import { course } from '@/lib/data';
 import { initializeFirebase } from '@/firebase/server-init';
-import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where } from 'firebase/firestore';
+import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 
 const { firestore } = initializeFirebase();
 
@@ -42,14 +42,28 @@ export async function handleGenerateJustification(input: AbsenceJustificationInp
     }
 }
 
-export async function handleMarkAttendance(photoDataUri: string, studentId: string) {
+export async function handleVerifyAndMarkAttendance(photoDataUri: string, studentId: string) {
   try {
-    const { faceDetected } = await detectFaceAndMarkAttendance({ photoDataUri });
+    // 1. Get student's registered face template
+    const userDocRef = doc(firestore, 'users', studentId);
+    const userDoc = await getDoc(userDocRef);
 
-    if (!faceDetected) {
-      return { success: false, error: 'No face detected. Please make sure you are in the frame.' };
+    if (!userDoc.exists() || !userDoc.data().faceTemplate) {
+        return { success: false, error: 'You have not registered your face yet. Please go to Settings to register.' };
+    }
+    const registeredFaceTemplate = userDoc.data().faceTemplate;
+
+    // 2. Verify face
+    const { isMatch } = await verifyStudentFace({
+        photoDataUri,
+        registeredFaceTemplate
+    });
+
+    if (!isMatch) {
+      return { success: false, error: 'Face does not match registered profile. Please report to your instructor.' };
     }
 
+    // 3. Mark attendance
     const classSessionId = "CS101-SESSION-01"; 
 
     const attendanceRecord = {

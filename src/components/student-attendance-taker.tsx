@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Camera, Loader2 } from 'lucide-react';
-import { handleMarkAttendance } from '@/app/actions';
-import { useUser, useFirestore } from '@/firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { Camera, Loader2, UserCheck } from 'lucide-react';
+import { handleVerifyAndMarkAttendance } from '@/app/actions';
+import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 
 export default function StudentAttendanceTaker() {
   const { user } = useUser();
@@ -20,6 +20,15 @@ export default function StudentAttendanceTaker() {
   const [lastAttendance, setLastAttendance] = useState<{ status: string; timestamp: Date } | null>(null);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(true);
   const { toast } = useToast();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData } = useDoc(userDocRef);
+  const hasRegisteredFace = !!userData?.faceTemplate;
+
 
   const fetchLastAttendance = useCallback(async () => {
     if (!user || !firestore) return;
@@ -49,6 +58,10 @@ export default function StudentAttendanceTaker() {
 
   useEffect(() => {
     const getCameraPermission = async () => {
+      if (!hasRegisteredFace) {
+        setHasCameraPermission(false);
+        return;
+      }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
@@ -63,7 +76,9 @@ export default function StudentAttendanceTaker() {
     };
 
     getCameraPermission();
-    fetchLastAttendance();
+    if(user) {
+        fetchLastAttendance();
+    }
 
     // Cleanup: stop video stream when component unmounts
     return () => {
@@ -72,7 +87,7 @@ export default function StudentAttendanceTaker() {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [fetchLastAttendance]);
+  }, [fetchLastAttendance, user, hasRegisteredFace]);
 
   const markAttendance = async () => {
     if (!videoRef.current || !canvasRef.current || !user) return;
@@ -90,7 +105,7 @@ export default function StudentAttendanceTaker() {
 
     const photoDataUri = canvas.toDataURL('image/jpeg');
 
-    const result = await handleMarkAttendance(photoDataUri, user.uid);
+    const result = await handleVerifyAndMarkAttendance(photoDataUri, user.uid);
 
     if (result.success) {
       toast({
@@ -115,6 +130,62 @@ export default function StudentAttendanceTaker() {
     return lastAttendance.timestamp < twelveHoursAgo;
   };
 
+  const renderContent = () => {
+     if (!hasRegisteredFace) {
+        return (
+             <Alert>
+                <UserCheck className="h-4 w-4" />
+                <AlertTitle>Face Not Registered</AlertTitle>
+                <AlertDescription>
+                    You need to register your face before you can mark attendance. Please go to the 
+                    <Button variant="link" asChild><a href="/settings">Settings</a></Button> 
+                    page to complete your profile.
+                </AlertDescription>
+            </Alert>
+        )
+    }
+
+    return (
+        <>
+            <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+              <canvas ref={canvasRef} className="hidden" />
+              {hasCameraPermission === null && (
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+                </div>
+              )}
+               {hasCameraPermission === false && hasRegisteredFace && (
+                <Alert variant="destructive" className="w-full">
+                    <AlertTitle>Camera Access Denied</AlertTitle>
+                    <AlertDescription>
+                    Please enable camera permissions in your browser settings to use this feature.
+                    </AlertDescription>
+                </Alert>
+                )}
+            </div>
+            <CardFooter className="flex flex-col gap-4">
+                {isLoadingAttendance ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+                ) : canMarkAttendance() ? (
+                <Button onClick={markAttendance} disabled={!hasCameraPermission || isProcessing} className="w-full">
+                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+                    {isProcessing ? 'Verifying...' : 'Verify and Mark Attendance'}
+                </Button>
+                ) : (
+                <Alert className="w-full">
+                    <AlertTitle>Attendance Already Marked</AlertTitle>
+                    <AlertDescription>
+                        You have already marked your attendance as "{lastAttendance?.status}" on {lastAttendance?.timestamp.toLocaleString()}. You can mark it again later.
+                    </AlertDescription>
+                </Alert>
+                )}
+            </CardFooter>
+        </>
+    )
+
+  }
+
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
@@ -124,41 +195,8 @@ export default function StudentAttendanceTaker() {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-4">
-        {hasCameraPermission === false && (
-          <Alert variant="destructive" className="w-full">
-            <AlertTitle>Camera Access Denied</AlertTitle>
-            <AlertDescription>
-              Please enable camera permissions in your browser settings to use this feature.
-            </AlertDescription>
-          </Alert>
-        )}
-        <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-          <canvas ref={canvasRef} className="hidden" />
-          {hasCameraPermission === null && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-            </div>
-          )}
-        </div>
+        {renderContent()}
       </CardContent>
-      <CardFooter className="flex flex-col gap-4">
-        {isLoadingAttendance ? (
-          <Loader2 className="h-5 w-5 animate-spin" />
-        ) : canMarkAttendance() ? (
-          <Button onClick={markAttendance} disabled={!hasCameraPermission || isProcessing} className="w-full">
-            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-            {isProcessing ? 'Processing...' : 'Mark Attendance'}
-          </Button>
-        ) : (
-          <Alert className="w-full">
-            <AlertTitle>Attendance Already Marked</AlertTitle>
-            <AlertDescription>
-                You have already marked your attendance as "{lastAttendance?.status}" on {lastAttendance?.timestamp.toLocaleString()}. You can mark it again later.
-            </AlertDescription>
-          </Alert>
-        )}
-      </CardFooter>
     </Card>
   );
 }

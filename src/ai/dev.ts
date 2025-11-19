@@ -6,3 +6,4 @@ import '@/ai/flows/generate-absence-justification.ts';
 import '@/ai/flows/detect-face.ts';
 import '@/ai/flows/recognize-face.ts';
 import '@/ai/flows/register-face.ts';
+import '@/ai/flows/verify-student-face.ts';
