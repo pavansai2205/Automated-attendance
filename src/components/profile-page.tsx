@@ -7,7 +7,6 @@ import { doc } from 'firebase/firestore';
 import { Loader2, User as UserIcon, Phone, Home, Shield } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import Image from 'next/image';
-import FaceRegistration from './face-registration';
 
 export default function ProfilePage() {
   const { user, isUserLoading } = useUser();
@@ -37,8 +36,8 @@ export default function ProfilePage() {
   const displayName = `${userData.firstName} ${userData.lastName}`;
 
   return (
-    <div className='grid md:grid-cols-3 gap-6'>
-      <div className='md:col-span-2 space-y-6'>
+    <div className='grid md:grid-cols-1 gap-6'>
+      <div className='space-y-6'>
         <Card>
           <CardHeader className="flex flex-row items-center gap-4">
             <Avatar className="h-20 w-20">
@@ -82,9 +81,6 @@ export default function ProfilePage() {
             )}
           </CardContent>
         </Card>
-      </div>
-      <div>
-        <FaceRegistration />
       </div>
     </div>
   );
