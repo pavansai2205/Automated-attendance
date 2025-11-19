@@ -3,3 +3,4 @@ config();
 
 import '@/ai/flows/summarize-attendance-trends.ts';
 import '@/ai/flows/generate-absence-justification.ts';
+import '@/ai/flows/detect-face.ts';

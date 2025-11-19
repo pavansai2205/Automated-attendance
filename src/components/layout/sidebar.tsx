@@ -14,6 +14,7 @@ import {
   BarChart3,
   Settings,
   CheckCircle,
+  Camera,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -21,6 +22,7 @@ import { useUser } from '@/firebase';
 
 const menuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
+  { href: '/attendance', label: 'Attendance', icon: Camera },
   { href: '/students', label: 'Students', icon: Users },
   { href: '/reports', label: 'Reports', icon: BarChart3 },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -49,7 +51,7 @@ export function AppSidebar() {
             <SidebarMenuItem key={item.label}>
               <SidebarMenuButton
                 asChild
-                isActive={pathname === item.href}
+                isActive={pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))}
                 tooltip={item.label}
               >
                 <Link href={item.href}>
