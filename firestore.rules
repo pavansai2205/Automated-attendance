@@ -25,9 +25,8 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // This function now uses exists() which is more secure and correct for this check.
-    // It verifies that a user document exists with the roleId of 'instructor' without
-    // needing separate read permissions on the user's own document.
+    // This function verifies that a user document exists with the roleId of 'instructor'.
+    // It correctly uses exists() which is more secure and does not require separate read permissions.
     function isInstructor() {
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
