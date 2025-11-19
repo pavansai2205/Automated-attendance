@@ -26,6 +26,7 @@ import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
 import type { AttendanceRecord } from '@/lib/types';
 import { Button } from './ui/button';
+import { AuthGuard } from './auth-guard';
 
 const statusVariant: { [key in AttendanceStatus]: "default" | "destructive" | "secondary" } = {
   Present: 'default',
@@ -42,7 +43,7 @@ const getDayRange = (date: Date) => {
     return { start, end };
 };
 
-export default function StudentListPageContent() {
+function StudentList() {
   const firestore = useFirestore();
 
   // 1. Fetch all students in realtime
@@ -137,5 +138,14 @@ export default function StudentListPageContent() {
           </CardContent>
         </Card>
     </div>
+  );
+}
+
+
+export default function StudentListPageContent() {
+  return (
+    <AuthGuard requiredRole="instructor">
+      <StudentList />
+    </AuthGuard>
   );
 }

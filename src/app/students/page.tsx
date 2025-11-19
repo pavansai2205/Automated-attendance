@@ -1,14 +1,11 @@
-'use client';
-
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import { AuthGuard } from "@/components/auth-guard";
 import StudentListPageContent from "@/components/student-list-page-content";
 
+// This is now a Server Component, which is more stable for Next.js routing.
 export default function StudentsPage() {
   return (
-    <AuthGuard requiredRole="instructor">
       <SidebarProvider>
         <Sidebar>
           <AppSidebar />
@@ -20,6 +17,5 @@ export default function StudentsPage() {
           </main>
         </SidebarInset>
       </SidebarProvider>
-    </AuthGuard>
   );
 }
