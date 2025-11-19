@@ -85,7 +85,14 @@ export default function StudentSignupPage() {
 
         await user.getIdToken(true);
         
-        router.push('/');
+        toast({
+          title: "Registration Successful!",
+          description: "Your account has been created. Your instructor will provide you with your student ID.",
+          duration: 5000,
+        });
+
+        // Redirect after a short delay to allow toast to be seen
+        setTimeout(() => router.push('/'), 2000);
       }
     } catch (error: any) {
       toast({
