@@ -45,7 +45,6 @@ export * from './client-provider';
 export * from './firestore/use-collection';
 export * from './firestore/use-doc';
 export * from './non-blocking-updates';
-export * from './non-blocking-login';
 export * from './errors';
 export * from './error-emitter';
 
@@ -56,10 +55,10 @@ import {
 
 
 /** Initiate email/password sign-in (non-blocking). */
-export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): Promise<void> {
+export function initiateEmailSignIn(authInstance: Auth, email: string, password: string): Promise<any> {
   return new Promise((resolve, reject) => {
     signInWithEmailAndPassword(authInstance, email, password)
-      .then(() => resolve())
+      .then((userCredential) => resolve(userCredential))
       .catch((error) => reject(error));
   });
 }
