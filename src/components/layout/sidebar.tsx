@@ -28,7 +28,7 @@ import { useMemo } from 'react';
 const allMenuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/attendance', label: 'Attendance', icon: Camera, roles: ['instructor'] },
-  { href: '/timetable', label: 'Timetable', icon: CalendarDays, roles: ['instructor', 'student'] },
+  { href: '/timetable', label: 'Timetable', icon: CalendarDays, roles: ['instructor'] },
   { href: '/marks', label: 'Marks', icon: GraduationCap, roles: ['instructor'] },
   { href: '/students', label: 'Students', icon: Users, roles: ['instructor'] },
   { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['instructor'] },
@@ -70,10 +70,7 @@ export function AppSidebar() {
       <SidebarContent>
         <SidebarMenu>
           {menuItems.map((item) => {
-            let href = item.href;
-            if (item.label === 'Timetable' && role === 'student') {
-              href = '/timetable/student';
-            }
+            const href = item.href;
             return (
               <SidebarMenuItem key={item.label}>
                 <SidebarMenuButton
