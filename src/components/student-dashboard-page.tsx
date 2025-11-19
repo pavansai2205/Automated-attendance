@@ -87,7 +87,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="space-y-6">
-        <Card className="shadow-lg hover:shadow-xl transition-shadow duration-300 transform hover:-translate-y-1">
+        <Card>
           <CardHeader>
             <CardTitle>{displayName}</CardTitle>
             <CardDescription>Here's a summary of your attendance.</CardDescription>
