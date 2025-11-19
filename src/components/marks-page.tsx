@@ -72,10 +72,18 @@ export default function MarksPage() {
   }, [firestore]);
   const { data: students, isLoading: isLoadingStudents } = useCollection<Student>(studentsQuery);
   
+  const courseIds = useMemo(() => courses?.map(c => c.id) || [], [courses]);
+
   const recentMarksQuery = useMemo(() => {
-      if (!firestore) return null;
-      return query(collection(firestore, 'marks'), orderBy('timestamp', 'desc'), where('courseId', 'in', courses?.map(c => c.id) || ['']));
-  }, [firestore, courses]);
+    if (!firestore || courseIds.length === 0) return null;
+    // This query is now secure, as it only asks for marks within the instructor's courses.
+    return query(
+        collection(firestore, 'marks'), 
+        where('courseId', 'in', courseIds), 
+        orderBy('timestamp', 'desc')
+    );
+  }, [firestore, courseIds]);
+
   const { data: recentMarks, isLoading: isLoadingMarks } = useCollection<Mark>(recentMarksQuery);
 
 
@@ -235,7 +243,7 @@ export default function MarksPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-            {isLoading ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+            {(isLoading || (courseIds.length > 0 && isLoadingMarks)) ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
                  <Table>
                     <TableHeader>
                         <TableRow>
