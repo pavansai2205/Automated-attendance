@@ -7,7 +7,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { useUser, useFirestore, useDoc } from "@/firebase";
 import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
-import FaceRegistration from "@/components/face-registration";
 import { doc } from "firebase/firestore";
 import { AuthGuard } from "@/components/auth-guard";
 
@@ -23,8 +22,7 @@ function SettingsContent() {
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
   const isLoading = isUserLoading || isUserDocLoading;
-  const role = userData?.roleId;
-
+  
   if (isLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
@@ -49,7 +47,6 @@ function SettingsContent() {
               <p>General settings will be implemented here.</p>
             </CardContent>
           </Card>
-          {role === 'student' && <FaceRegistration />}
         </main>
       </SidebarInset>
     </SidebarProvider>

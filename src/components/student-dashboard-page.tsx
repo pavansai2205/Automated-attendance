@@ -17,6 +17,7 @@ import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
 import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { AttendanceRecord } from '@/lib/types';
+import FaceRegistration from './face-registration';
 
 export default function StudentDashboardPage() {
   const { user } = useUser();
@@ -84,6 +85,7 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="grid gap-4 md:gap-6">
+       <FaceRegistration />
       <Card>
         <CardHeader>
           <CardTitle>{displayName}</CardTitle>
