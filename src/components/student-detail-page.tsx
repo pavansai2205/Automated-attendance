@@ -39,13 +39,19 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
   const studentDocRef = useMemo(() => firestore ? doc(firestore, 'users', studentId) : null, [firestore, studentId]);
   const { data: student, isLoading: isLoadingStudent } = useDoc<Omit<StudentType, 'id' | 'name' | 'attendanceHistory' | 'attendanceStatus'>>(studentDocRef);
 
-  // Fetch student attendance history in realtime
+  // Fetch student attendance history in realtime, filtering only by studentId.
   const attendanceQuery = useMemo(() => firestore ? query(
     collection(firestore, 'attendanceRecords'), 
-    where('studentId', '==', studentId),
-    orderBy('timestamp', 'desc')
+    where('studentId', '==', studentId)
+    // Sorting will be done on the client side to avoid needing a composite index.
     ) : null, [firestore, studentId]);
   const { data: attendanceHistory, isLoading: isLoadingHistory } = useCollection<AttendanceRecord>(attendanceQuery);
+  
+  // Sort the history client-side
+  const sortedAttendanceHistory = useMemo(() => {
+      if (!attendanceHistory) return [];
+      return attendanceHistory.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+  }, [attendanceHistory]);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -127,7 +133,7 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
           </CardHeader>
           <CardContent>
              <ul className="space-y-2">
-              {attendanceHistory && attendanceHistory.map((record) => (
+              {sortedAttendanceHistory && sortedAttendanceHistory.map((record) => (
                 <li key={record.id} className="flex justify-between items-center p-2 rounded-md even:bg-secondary">
                   <div>
                     <span>{record.timestamp.toDate().toLocaleDateString()}</span>
@@ -136,7 +142,7 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
                   <span className={`font-medium ${record.status === 'Present' ? 'text-primary' : 'text-destructive'}`}>{record.status}</span>
                 </li>
               ))}
-              {attendanceHistory?.length === 0 && <p className='text-muted-foreground text-sm'>No attendance records found.</p>}
+              {sortedAttendanceHistory?.length === 0 && <p className='text-muted-foreground text-sm'>No attendance records found.</p>}
             </ul>
           </CardContent>
         </Card>
