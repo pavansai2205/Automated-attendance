@@ -15,14 +15,24 @@ import { LogOut, User, LogIn, UserPlus } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import placeholderImages from '@/lib/placeholder-images.json';
-import { useAuth, useUser } from '@/firebase';
+import { useAuth, useUser, useFirestore, useDoc } from '@/firebase';
 import { signOut } from 'firebase/auth';
 import { useRouter } from 'next/navigation';
+import { doc } from 'firebase/firestore';
+import { useMemo } from 'react';
 
 export function AppHeader() {
   const { user, isUserLoading } = useUser();
   const auth = useAuth();
+  const firestore = useFirestore();
   const router = useRouter();
+
+  const userDocRef = useMemo(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData } = useDoc(userDocRef);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -30,6 +40,7 @@ export function AppHeader() {
   };
 
   const userAvatar = user?.photoURL || placeholderImages.placeholderImages.find(p => p.id === 'user-avatar')?.imageUrl;
+  const displayName = userData ? `${userData.firstName} ${userData.lastName}` : user?.email;
 
   return (
     <header className="sticky top-0 z-10 flex h-16 items-center justify-between gap-4 border-b bg-background px-4 lg:px-6">
@@ -60,7 +71,7 @@ export function AppHeader() {
             <DropdownMenuContent align="end" className="w-56">
               <DropdownMenuLabel>
                 <div className="flex flex-col space-y-1">
-                  <p className="text-sm font-medium leading-none">{user.displayName || user.email}</p>
+                  <p className="text-sm font-medium leading-none">{displayName}</p>
                   <p className="text-xs leading-none text-muted-foreground">
                     {user.email}
                   </p>

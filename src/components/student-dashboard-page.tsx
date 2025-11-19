@@ -13,8 +13,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Camera, CheckCircle, Clock } from 'lucide-react';
 import Link from 'next/link';
-import { useCollection, useFirestore, useUser } from '@/firebase';
-import { collection, query, where, Timestamp } from 'firebase/firestore';
+import { useCollection, useFirestore, useUser, useDoc } from '@/firebase';
+import { collection, query, where, Timestamp, doc } from 'firebase/firestore';
 import { Loader2 } from 'lucide-react';
 import type { AttendanceRecord } from '@/lib/types';
 
@@ -22,9 +22,14 @@ export default function StudentDashboardPage() {
   const { user } = useUser();
   const firestore = useFirestore();
 
+  const userDocRef = useMemo(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+  const { data: userData } = useDoc(userDocRef);
+
   const attendanceQuery = useMemo(() => {
     if (!user || !firestore) return null;
-    // Query is now simpler: just filter by studentId. Sorting happens client-side.
     return query(
       collection(firestore, 'attendanceRecords'),
       where('studentId', '==', user.uid)
@@ -33,7 +38,6 @@ export default function StudentDashboardPage() {
 
   const { data: attendanceHistory, isLoading } = useCollection<AttendanceRecord>(attendanceQuery);
   
-  // Sort and limit the data on the client after fetching
   const sortedHistory = useMemo(() => {
     if (!attendanceHistory) return [];
     return attendanceHistory
@@ -76,12 +80,13 @@ export default function StudentDashboardPage() {
   };
 
   const statusInfo = getStatusInfo(latestRecord?.status || 'None');
+  const displayName = userData ? `Welcome, ${userData.firstName} ${userData.lastName}!` : 'Welcome!';
 
   return (
     <div className="grid gap-4 md:gap-6">
       <Card>
         <CardHeader>
-          <CardTitle>Welcome, {user?.displayName || user?.email}!</CardTitle>
+          <CardTitle>{displayName}</CardTitle>
           <CardDescription>Here's a summary of your attendance.</CardDescription>
         </CardHeader>
         <CardContent>
