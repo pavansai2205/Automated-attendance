@@ -3,7 +3,8 @@
  *
  * Core Philosophy:
  * This ruleset enforces a Role-Based Access Control (RBAC) model.
- * User access is determined by their assigned role and the permissions associated with that role.
+ * User access is determined by their assigned role, which is stored as a custom claim
+ * on their authentication token. This is more secure and efficient than reading roles from documents.
  * Ownership is enforced where applicable, such as on `/users/{userId}` and `/courses/{courseId}`.
  *
  * Data Structure:
@@ -16,7 +17,7 @@
  *
  * Key Security Decisions:
  * - User listing is restricted to instructors only.
- * - Roles and Permissions collections are only writable by a user with the 'admin' role.
+ * - Roles and Permissions collections are only writable by a user with the 'admin' role claim.
  * - Students can create their own attendance records, but cannot modify or delete them.
  * - Instructors can view attendance records for their courses.
  *
@@ -25,12 +26,21 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
-    // This function verifies that a user document exists with the roleId of 'instructor'.
-    // It correctly uses exists() which is more secure and does not require separate read permissions.
+    /**
+     * @description Checks if the authenticated user has the 'instructor' role via custom claims.
+     * This is the recommended, secure, and efficient way to check roles.
+     */
     function isInstructor() {
-      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
+      return request.auth.token.role == 'instructor';
     }
+
+    /**
+     * @description Checks if the authenticated user has the 'admin' role via custom claims.
+     */
+    function isAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+
 
     /**
      * @description Grants access to a user's profile based on their UID.
@@ -45,23 +55,17 @@ service cloud.firestore {
     }
 
     /**
-     * @description Grants access to roles based on admin role.
+     * @description Grants access to roles based on admin role custom claim.
      */
     match /roles/{roleId} {
-        function isAdmin() {
-            return request.auth.token.role == 'admin';
-        }
         allow read: if request.auth != null;
         allow write: if isAdmin();
     }
 
     /**
-     * @description Grants access to permissions based on admin role.
+     * @description Grants access to permissions based on admin role custom claim.
      */
     match /permissions/{permissionId} {
-        function isAdmin() {
-            return request.auth.token.role == 'admin';
-        }
         allow read: if request.auth != null;
         allow write: if isAdmin();
     }
@@ -84,6 +88,7 @@ service cloud.firestore {
      */
     match /courses/{courseId}/classSessions/{classSessionId} {
         function isCourseInstructor() {
+            // This get() is acceptable because it's checking a document related to the current context.
             return get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
         }
 
