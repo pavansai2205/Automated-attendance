@@ -7,7 +7,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader2, UserCheck, Video } from 'lucide-react';
 import { handleVerifyAndMarkAttendance, handleDetectFace } from '@/app/actions';
 import { useUser, useFirestore, useDoc } from '@/firebase';
-import { collection, query, where, getDocs, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, doc, orderBy } from 'firebase/firestore';
 import { Button } from './ui/button';
 
 type Status = 'idle' | 'scanning' | 'detecting' | 'verifying' | 'success' | 'error';
@@ -50,12 +50,13 @@ export default function StudentAttendanceTaker() {
     try {
       const attendanceQuery = query(
         collection(firestore, 'attendanceRecords'),
-        where('studentId', '==', user.uid)
+        where('studentId', '==', user.uid),
+        orderBy('timestamp', 'desc')
       );
       const querySnapshot = await getDocs(attendanceQuery);
       if (!querySnapshot.empty) {
         const records = querySnapshot.docs.map(doc => doc.data());
-        records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+        // No need to sort client-side due to orderBy
         const lastRecord = records[0];
         setLastAttendance({
           status: lastRecord.status,
