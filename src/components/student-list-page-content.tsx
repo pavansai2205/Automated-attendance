@@ -42,7 +42,7 @@ const getDayRange = (date: Date) => {
     return { start, end };
 };
 
-export default function StudentListPage() {
+export default function StudentListPageContent() {
   const firestore = useFirestore();
 
   // 1. Fetch all students in realtime

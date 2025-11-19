@@ -3,8 +3,8 @@
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import StudentListPage from "@/components/student-list-page";
 import { AuthGuard } from "@/components/auth-guard";
+import StudentListPageContent from "@/components/student-list-page-content";
 
 export default function StudentsPage() {
   return (
@@ -16,7 +16,7 @@ export default function StudentsPage() {
         <SidebarInset>
           <AppHeader />
           <main className="p-4 lg:p-6">
-            <StudentListPage />
+            <StudentListPageContent />
           </main>
         </SidebarInset>
       </SidebarProvider>
