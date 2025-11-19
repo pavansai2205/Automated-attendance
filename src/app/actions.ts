@@ -5,11 +5,22 @@ import { generateAbsenceJustification, type AbsenceJustificationInput } from '@/
 import { recognizeStudentFace } from '@/ai/flows/recognize-face';
 import { registerFace } from '@/ai/flows/register-face';
 import { verifyStudentFace } from '@/ai/flows/verify-student-face';
+import { detectFaceAndMarkAttendance } from '@/ai/flows/detect-face';
 import { course } from '@/lib/data';
 import { initializeFirebase } from '@/firebase/server-init';
 import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 
 const { firestore } = initializeFirebase();
+
+export async function handleDetectFace(photoDataUri: string) {
+    try {
+        const result = await detectFaceAndMarkAttendance({ photoDataUri });
+        return { success: true, ...result };
+    } catch (error) {
+        console.error(error);
+        return { success: false, error: 'Failed to detect face.' };
+    }
+}
 
 export async function handleSummarizeTrends() {
   try {

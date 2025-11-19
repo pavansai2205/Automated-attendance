@@ -1,22 +1,26 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Camera, Loader2, UserCheck } from 'lucide-react';
-import { handleVerifyAndMarkAttendance } from '@/app/actions';
+import { Loader2, UserCheck, Video } from 'lucide-react';
+import { handleVerifyAndMarkAttendance, handleDetectFace } from '@/app/actions';
 import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
 import { collection, query, where, getDocs, doc } from 'firebase/firestore';
+import { Button } from './ui/button';
+
+type Status = 'idle' | 'scanning' | 'detecting' | 'verifying' | 'success' | 'error';
 
 export default function StudentAttendanceTaker() {
   const { user } = useUser();
   const firestore = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scanIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
-  const [isProcessing, setIsProcessing] = useState(false);
+  const [status, setStatus] = useState<Status>('idle');
   const [lastAttendance, setLastAttendance] = useState<{ status: string; timestamp: Date } | null>(null);
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(true);
   const { toast } = useToast();
@@ -26,9 +30,22 @@ export default function StudentAttendanceTaker() {
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 
-  const { data: userData } = useDoc(userDocRef);
+  const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
   const hasRegisteredFace = !!userData?.faceTemplate;
 
+  const canMarkAttendance = useCallback(() => {
+    if (!lastAttendance) return true;
+    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+    return lastAttendance.timestamp < twelveHoursAgo;
+  }, [lastAttendance]);
+
+  const stopScanning = useCallback(() => {
+    if (scanIntervalRef.current) {
+      clearInterval(scanIntervalRef.current);
+      scanIntervalRef.current = null;
+    }
+    setStatus('idle');
+  }, []);
 
   const fetchLastAttendance = useCallback(async () => {
     if (!user || !firestore) return;
@@ -41,7 +58,6 @@ export default function StudentAttendanceTaker() {
       const querySnapshot = await getDocs(attendanceQuery);
       if (!querySnapshot.empty) {
         const records = querySnapshot.docs.map(doc => doc.data());
-        // Sort on the client-side
         records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
         const lastRecord = records[0];
         setLastAttendance({
@@ -56,145 +72,184 @@ export default function StudentAttendanceTaker() {
     }
   }, [user, firestore]);
 
+  const startScanning = useCallback(() => {
+    if (status !== 'idle' || !videoRef.current || !user || !canMarkAttendance()) return;
+    
+    setStatus('scanning');
+
+    scanIntervalRef.current = setInterval(async () => {
+      if (!videoRef.current || !canvasRef.current || document.hidden) return;
+
+      setStatus('detecting');
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const context = canvas.getContext('2d');
+      if (context) context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      
+      const photoDataUri = canvas.toDataURL('image/jpeg');
+
+      const detectionResult = await handleDetectFace(photoDataUri);
+      if (detectionResult.success && detectionResult.faceDetected) {
+        stopScanning();
+        setStatus('verifying');
+        
+        const result = await handleVerifyAndMarkAttendance(photoDataUri, user.uid);
+
+        if (result.success) {
+          setStatus('success');
+          toast({
+            title: 'Attendance Marked!',
+            description: 'Your attendance has been successfully recorded as "Present".',
+          });
+          fetchLastAttendance();
+        } else {
+          setStatus('error');
+          toast({
+            variant: 'destructive',
+            title: 'Attendance Failed',
+            description: result.error || 'Could not mark attendance. Please try again.',
+          });
+          // Allow user to try again after a delay
+          setTimeout(() => setStatus('idle'), 5000);
+        }
+      } else {
+        setStatus('scanning');
+      }
+    }, 2000);
+  }, [status, user, canMarkAttendance, stopScanning, fetchLastAttendance, toast]);
+
   useEffect(() => {
     const getCameraPermission = async () => {
-      if (!hasRegisteredFace) {
+      if (!hasRegisteredFace || !canMarkAttendance()) {
         setHasCameraPermission(false);
         return;
       }
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
+        if (videoRef.current) videoRef.current.srcObject = stream;
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
       }
     };
 
-    getCameraPermission();
-    if(user) {
-        fetchLastAttendance();
+    if (!isUserDocLoading) {
+      getCameraPermission();
     }
+    if (user) fetchLastAttendance();
 
-    // Cleanup: stop video stream when component unmounts
     return () => {
+      stopScanning();
       if (videoRef.current && videoRef.current.srcObject) {
         const stream = videoRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [fetchLastAttendance, user, hasRegisteredFace]);
+  }, [fetchLastAttendance, user, hasRegisteredFace, isUserDocLoading, canMarkAttendance, stopScanning]);
 
-  const markAttendance = async () => {
-    if (!videoRef.current || !canvasRef.current || !user) return;
-
-    setIsProcessing(true);
-
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const context = canvas.getContext('2d');
-    if(context){
-        context.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+  useEffect(() => {
+    // Automatically start scanning if everything is ready
+    if (hasCameraPermission && status === 'idle' && canMarkAttendance()) {
+      startScanning();
     }
+  }, [hasCameraPermission, status, canMarkAttendance, startScanning]);
 
-    const photoDataUri = canvas.toDataURL('image/jpeg');
 
-    const result = await handleVerifyAndMarkAttendance(photoDataUri, user.uid);
-
-    if (result.success) {
-      toast({
-        title: 'Attendance Marked!',
-        description: 'Your attendance has been successfully recorded as "Present".',
-      });
-      fetchLastAttendance(); // Refresh last attendance status
-    } else {
-      toast({
-        variant: 'destructive',
-        title: 'Attendance Failed',
-        description: result.error || 'Could not mark attendance. Please try again.',
-      });
+  const getStatusMessage = () => {
+    switch (status) {
+      case 'idle': return 'Ready to scan. Please look at the camera.';
+      case 'scanning': return 'Scanning for face...';
+      case 'detecting': return 'Analyzing frame...';
+      case 'verifying': return 'Face detected! Verifying your identity...';
+      case 'success': return 'Attendance marked successfully!';
+      case 'error': return 'Verification failed. Please try again or report to instructor.';
+      default: return 'Preparing camera...';
     }
-
-    setIsProcessing(false);
   };
 
-  const canMarkAttendance = () => {
-    if (!lastAttendance) return true;
-    const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
-    return lastAttendance.timestamp < twelveHoursAgo;
-  };
-
+  const getStatusIcon = () => {
+    switch (status) {
+        case 'scanning':
+        case 'detecting':
+        case 'verifying':
+            return <Loader2 className="h-4 w-4 animate-spin" />;
+        default:
+            return <Video className="h-4 w-4" />;
+    }
+  }
+  
   const renderContent = () => {
-     if (!hasRegisteredFace) {
-        return (
-             <Alert>
-                <UserCheck className="h-4 w-4" />
-                <AlertTitle>Face Not Registered</AlertTitle>
+    if (isUserDocLoading || isLoadingAttendance) {
+        return <Loader2 className="h-8 w-8 animate-spin" />;
+    }
+
+    if (!hasRegisteredFace) {
+      return (
+        <Alert>
+          <UserCheck className="h-4 w-4" />
+          <AlertTitle>Face Not Registered</AlertTitle>
+          <AlertDescription>
+            You need to register your face before you can mark attendance. Please go to the
+            <Button variant="link" asChild><a href="/settings">Settings</a></Button>
+            page to complete your profile.
+          </AlertDescription>
+        </Alert>
+      );
+    }
+    
+    if (!canMarkAttendance()) {
+         return (
+            <Alert className="w-full">
+                <AlertTitle>Attendance Already Marked</AlertTitle>
                 <AlertDescription>
-                    You need to register your face before you can mark attendance. Please go to the 
-                    <Button variant="link" asChild><a href="/settings">Settings</a></Button> 
-                    page to complete your profile.
+                    You have already marked your attendance as "{lastAttendance?.status}" on {lastAttendance?.timestamp.toLocaleString()}. You can mark it again later.
                 </AlertDescription>
             </Alert>
-        )
+         )
     }
 
+    if (hasCameraPermission === false) {
+         return (
+            <Alert variant="destructive" className="w-full">
+                <AlertTitle>Camera Access Denied</AlertTitle>
+                <AlertDescription>
+                Please enable camera permissions in your browser settings to use this feature.
+                </AlertDescription>
+            </Alert>
+         )
+    }
+    
     return (
-        <>
-            <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
-              <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-              <canvas ref={canvasRef} className="hidden" />
-              {hasCameraPermission === null && (
-                <div className="absolute inset-0 flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-                </div>
-              )}
-               {hasCameraPermission === false && hasRegisteredFace && (
-                <Alert variant="destructive" className="w-full">
-                    <AlertTitle>Camera Access Denied</AlertTitle>
-                    <AlertDescription>
-                    Please enable camera permissions in your browser settings to use this feature.
-                    </AlertDescription>
-                </Alert>
-                )}
+        <div className="w-full aspect-video bg-muted rounded-md overflow-hidden relative">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            <canvas ref={canvasRef} className="hidden" />
+            {(hasCameraPermission === null || isUserDocLoading) && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
             </div>
-            <CardFooter className="flex flex-col gap-4">
-                {isLoadingAttendance ? (
-                <Loader2 className="h-5 w-5 animate-spin" />
-                ) : canMarkAttendance() ? (
-                <Button onClick={markAttendance} disabled={!hasCameraPermission || isProcessing} className="w-full">
-                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-                    {isProcessing ? 'Verifying...' : 'Verify and Mark Attendance'}
-                </Button>
-                ) : (
-                <Alert className="w-full">
-                    <AlertTitle>Attendance Already Marked</AlertTitle>
-                    <AlertDescription>
-                        You have already marked your attendance as "{lastAttendance?.status}" on {lastAttendance?.timestamp.toLocaleString()}. You can mark it again later.
-                    </AlertDescription>
-                </Alert>
-                )}
-            </CardFooter>
-        </>
+            )}
+             <div className="absolute bottom-2 left-2 right-2">
+                <div className="flex items-center justify-center gap-2 rounded-md bg-background/80 backdrop-blur-sm p-2 text-sm font-medium">
+                    {getStatusIcon()}
+                    <span>{getStatusMessage()}</span>
+                </div>
+            </div>
+        </div>
     )
-
-  }
+  };
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
-        <CardTitle>Mark Your Attendance</CardTitle>
+        <CardTitle>Automated Attendance Check-in</CardTitle>
         <CardDescription>
-          Use your camera to verify your presence. A snapshot will be taken to confirm attendance.
+          Position your face in the center of the frame. The system will automatically detect and verify you.
         </CardDescription>
       </CardHeader>
-      <CardContent className="flex flex-col items-center gap-4">
+      <CardContent className="flex flex-col items-center justify-center gap-4 min-h-[300px]">
         {renderContent()}
       </CardContent>
     </Card>
