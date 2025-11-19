@@ -137,11 +137,12 @@ export async function handleRecognizeAndMarkAttendance(photoDataUri: string) {
   }
 }
 
-export async function handleRegisterFace(photoDataUri: string, userId: string) {
+export async function handleUpdateFaceTemplate(photoDataUri: string, userId: string) {
     try {
+        // Optional: you might want to re-run a quality check here
         const { faceRegistered } = await registerFace({ photoDataUri });
         if (!faceRegistered) {
-            return { success: false, error: 'No face detected in the photo. Please try again.' };
+            return { success: false, error: 'No clear face detected in the new photo. Please try again.' };
         }
 
         const userRef = doc(firestore, 'users', userId);
@@ -151,10 +152,11 @@ export async function handleRegisterFace(photoDataUri: string, userId: string) {
 
         return { success: true };
     } catch (error) {
-        console.error('Error registering face:', error);
-        return { success: false, error: 'Failed to register face.' };
+        console.error('Error updating face template:', error);
+        return { success: false, error: 'Failed to update profile picture.' };
     }
 }
+
 
 export async function handleCreateClassSession(courseId: string, startTime: Date, endTime: Date) {
     try {

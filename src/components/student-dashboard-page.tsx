@@ -87,7 +87,6 @@ export default function StudentDashboardPage() {
 
   return (
     <div className="space-y-6">
-        <FaceRegistration />
         <Card>
           <CardHeader>
             <CardTitle>{displayName}</CardTitle>

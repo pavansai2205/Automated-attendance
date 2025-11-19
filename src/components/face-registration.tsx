@@ -5,34 +5,36 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Camera, Loader2, UserCheck } from 'lucide-react';
+import { Camera, Loader2, UserCheck, RefreshCw } from 'lucide-react';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { handleRegisterFace } from '@/app/actions';
+import { handleUpdateFaceTemplate } from '@/app/actions';
+import Image from 'next/image';
 
 export default function FaceRegistration() {
   const { user } = useUser();
   const firestore = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(true); // Assume true initially
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(true);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const { toast } = useToast();
 
   const userDocRef = useMemo(() => (user && firestore ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
   const hasRegisteredFace = !!userData?.faceTemplate;
+  const avatarUrl = userData?.faceTemplate || `https://i.pravatar.cc/150?u=${user?.uid}`;
 
-   useEffect(() => {
+  useEffect(() => {
     let stream: MediaStream;
 
     const getCameraPermission = async () => {
-      if (!hasRegisteredFace) {
+      if (isEditing) {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true });
           setHasCameraPermission(true);
-
           if (videoRef.current) {
             videoRef.current.srcObject = stream;
           }
@@ -50,22 +52,21 @@ export default function FaceRegistration() {
         stream.getTracks().forEach(track => track.stop());
       }
       if (videoRef.current && videoRef.current.srcObject) {
-         const cleanupStream = videoRef.current.srcObject as MediaStream;
-         cleanupStream.getTracks().forEach(track => track.stop());
+        const cleanupStream = videoRef.current.srcObject as MediaStream;
+        cleanupStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [hasRegisteredFace]);
+  }, [isEditing]);
 
-
-  const registerFace = async () => {
+  const updateFace = async () => {
     if (!videoRef.current || !canvasRef.current || !user) return;
-     if (!hasCameraPermission) {
-        toast({
-            variant: 'destructive',
-            title: 'Camera Access Required',
-            description: 'Please enable camera permissions in your browser settings to register your face.',
-        });
-        return;
+    if (!hasCameraPermission) {
+      toast({
+        variant: 'destructive',
+        title: 'Camera Access Required',
+        description: 'Please enable camera permissions in your browser settings to update your picture.',
+      });
+      return;
     }
 
     setIsProcessing(true);
@@ -81,87 +82,104 @@ export default function FaceRegistration() {
 
     const photoDataUri = canvas.toDataURL('image/jpeg');
 
-    const result = await handleRegisterFace(photoDataUri, user.uid);
+    const result = await handleUpdateFaceTemplate(photoDataUri, user.uid);
 
     if (result.success) {
       toast({
-        title: 'Face Registered!',
-        description: 'Your face has been successfully saved to your profile.',
+        title: 'Profile Picture Updated!',
+        description: 'Your new picture has been saved.',
       });
+      setIsEditing(false);
     } else {
       toast({
         variant: 'destructive',
-        title: 'Registration Failed',
-        description: result.error || 'Could not register your face. Please try again.',
+        title: 'Update Failed',
+        description: result.error || 'Could not update your picture. Please try again.',
       });
     }
 
     setIsProcessing(false);
   };
-  
+
   if (isUserDocLoading) {
     return (
-         <Card>
-            <CardHeader>
-                <CardTitle>Face Registration</CardTitle>
-            </CardHeader>
-            <CardContent className='flex items-center justify-center h-24'>
-                 <Loader2 className="h-8 w-8 animate-spin" />
-            </CardContent>
-        </Card>
-    )
-  }
-
-  if (hasRegisteredFace) {
-    return (
-       <Card>
+      <Card>
         <CardHeader>
-            <CardTitle className='flex items-center gap-2'>
-                <UserCheck className='text-primary'/>
-                <span>Face Registration Complete</span>
-            </CardTitle>
-            <CardDescription>
-                You have already registered your face. You can now use face recognition for attendance.
-            </CardDescription>
+          <CardTitle>Profile Picture</CardTitle>
         </CardHeader>
+        <CardContent className='flex items-center justify-center h-24'>
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </CardContent>
       </Card>
     )
   }
 
+  if (isEditing) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle>Update Your Profile Picture</CardTitle>
+          <CardDescription>
+            Capture a clear photo of your face.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="flex flex-col items-center gap-4">
+          {hasCameraPermission === false && (
+            <Alert variant="destructive" className="w-full">
+              <AlertTitle>Camera Access Denied</AlertTitle>
+              <AlertDescription>
+                Please enable camera permissions in your browser settings to update your picture.
+              </AlertDescription>
+            </Alert>
+          )}
+          <div className="w-full max-w-md aspect-video bg-muted rounded-md overflow-hidden relative">
+            <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
+            <canvas ref={canvasRef} className="hidden" />
+            {hasCameraPermission === null && (
+              <div className="absolute inset-0 flex items-center justify-center">
+                <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+              </div>
+            )}
+          </div>
+        </CardContent>
+        <CardFooter className="grid grid-cols-2 gap-2">
+          <Button onClick={updateFace} disabled={isProcessing}>
+            {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
+            {isProcessing ? 'Saving...' : 'Save New Picture'}
+          </Button>
+          <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isProcessing}>
+            Cancel
+          </Button>
+        </CardFooter>
+      </Card>
+    );
+  }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Register Your Face</CardTitle>
+        <CardTitle className='flex items-center justify-between'>
+          <span>Profile Picture</span>
+           <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+                <RefreshCw className='mr-2 h-4 w-4' />
+                Change Picture
+            </Button>
+        </CardTitle>
         <CardDescription>
-          Capture a clear photo of your face. This will be used to verify your identity for attendance.
+          This picture is used for facial recognition during attendance.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-4">
-        {hasCameraPermission === false && (
-          <Alert variant="destructive" className="w-full">
-            <AlertTitle>Camera Access Denied</AlertTitle>
-            <AlertDescription>
-              Please enable camera permissions in your browser settings to register your face.
-            </AlertDescription>
-          </Alert>
-        )}
-        <div className="w-full max-w-md aspect-video bg-muted rounded-md overflow-hidden relative">
-          <video ref={videoRef} className="w-full h-full object-cover" autoPlay muted playsInline />
-          <canvas ref={canvasRef} className="hidden" />
-          {hasCameraPermission === null && (
-            <div className="absolute inset-0 flex items-center justify-center">
-              <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        {hasRegisteredFace ? (
+             <div className="w-40 h-40 rounded-full overflow-hidden relative">
+                <Image src={avatarUrl} alt="Current profile picture" layout='fill' objectFit='cover' data-ai-hint="person portrait" />
+             </div>
+        ) : (
+            <div className="text-center p-4 border-dashed border-2 rounded-md">
+                <p className="text-muted-foreground">No profile picture has been set yet.</p>
             </div>
-          )}
-        </div>
+        )}
       </CardContent>
-      <CardFooter>
-        <Button onClick={registerFace} disabled={isProcessing} className="w-full">
-          {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}
-          {isProcessing ? 'Processing...' : 'Capture and Register Face'}
-        </Button>
-      </CardFooter>
     </Card>
-  );
+  )
 }
