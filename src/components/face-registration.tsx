@@ -5,10 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Camera, Loader2, RefreshCw, Upload } from 'lucide-react';
+import { Camera, Loader2, RefreshCw, Upload, Trash2 } from 'lucide-react';
 import { useUser, useDoc, useFirestore } from '@/firebase';
 import { doc } from 'firebase/firestore';
-import { handleUpdateFaceTemplate } from '@/app/actions';
+import { handleUpdateFaceTemplate, handleRemoveFaceTemplate } from '@/app/actions';
 import Image from 'next/image';
 
 export default function FaceRegistration() {
@@ -134,6 +134,25 @@ export default function FaceRegistration() {
     }
   };
 
+  const onRemovePicture = async () => {
+      if (!user) return;
+      setIsProcessing(true);
+      const result = await handleRemoveFaceTemplate(user.uid);
+      if (result.success) {
+          toast({
+              title: 'Profile Picture Removed',
+              description: 'Your profile picture has been removed.',
+          });
+      } else {
+          toast({
+              variant: 'destructive',
+              title: 'Error',
+              description: 'Failed to remove profile picture.',
+          });
+      }
+      setIsProcessing(false);
+  }
+
 
   if (isUserDocLoading) {
     return (
@@ -205,10 +224,18 @@ export default function FaceRegistration() {
       <CardHeader>
         <CardTitle className='flex items-center justify-between'>
           <span>Profile Picture</span>
-           <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
+           <div className='flex gap-2'>
+            {hasRegisteredFace && (
+                <Button variant="destructive" size="sm" onClick={onRemovePicture} disabled={isProcessing}>
+                    {isProcessing ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Trash2 className='mr-2 h-4 w-4' />}
+                    Remove
+                </Button>
+            )}
+            <Button variant="outline" size="sm" onClick={() => setIsEditing(true)}>
                 <RefreshCw className='mr-2 h-4 w-4' />
-                Change Picture
+                {hasRegisteredFace ? 'Change' : 'Add'} Picture
             </Button>
+           </div>
         </CardTitle>
         <CardDescription>
           This picture is used for facial recognition during attendance.

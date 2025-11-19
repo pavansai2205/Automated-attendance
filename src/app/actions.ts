@@ -157,6 +157,20 @@ export async function handleUpdateFaceTemplate(photoDataUri: string, userId: str
     }
 }
 
+export async function handleRemoveFaceTemplate(userId: string) {
+    try {
+        const userRef = doc(firestore, 'users', userId);
+        await updateDoc(userRef, {
+            faceTemplate: null
+        });
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error removing face template:', error);
+        return { success: false, error: 'Failed to remove profile picture.' };
+    }
+}
+
 
 export async function handleCreateClassSession(courseId: string, startTime: Date, endTime: Date) {
     try {
