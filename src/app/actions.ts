@@ -232,4 +232,28 @@ export async function handleGenerateReport(courseId: string, startDate: Date, en
         return { success: false, error: 'Failed to generate report.' };
     }
 }
-    
+
+export async function handleAddMark(studentId: string, courseId: string, assignmentName: string, score: number, totalScore: number) {
+    try {
+        if (!studentId || !courseId || !assignmentName || score == null || totalScore == null) {
+            return { success: false, error: 'Missing required fields.' };
+        }
+
+        const newMark = {
+            studentId,
+            courseId,
+            assignmentName,
+            score,
+            totalScore,
+            timestamp: serverTimestamp(),
+        };
+
+        const marksRef = collection(firestore, 'marks');
+        await addDoc(marksRef, newMark);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error adding mark:', error);
+        return { success: false, error: 'Failed to add mark.' };
+    }
+}

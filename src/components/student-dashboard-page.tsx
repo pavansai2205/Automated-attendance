@@ -19,6 +19,7 @@ import { Loader2 } from 'lucide-react';
 import type { AttendanceRecord } from '@/lib/types';
 import FaceRegistration from './face-registration';
 import StudentTimetable from './student-timetable';
+import StudentMarksView from './student-marks-view';
 
 export default function StudentDashboardPage() {
   const { user } = useUser();
@@ -89,6 +90,7 @@ export default function StudentDashboardPage() {
     <div className="grid gap-4 md:gap-6">
        <FaceRegistration />
        <StudentTimetable />
+       <StudentMarksView />
       <Card>
         <CardHeader>
           <CardTitle>{displayName}</CardTitle>

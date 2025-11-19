@@ -200,6 +200,52 @@
         "description",
         "instructorId"
       ]
+    },
+    "Mark": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Mark",
+      "type": "object",
+      "description": "Represents a mark or grade for a student on an assignment or exam.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Mark entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to User (Student)."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to the Course."
+        },
+        "assignmentName": {
+          "type": "string",
+          "description": "Name of the assignment or exam."
+        },
+        "score": {
+          "type": "number",
+          "description": "The score the student received."
+        },
+        "totalScore": {
+          "type": "number",
+          "description": "The total possible score for the assignment."
+        },
+        "timestamp": {
+          "type": "string",
+          "description": "The date and time the mark was recorded.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "studentId",
+        "courseId",
+        "assignmentName",
+        "score",
+        "totalScore",
+        "timestamp"
+      ]
     }
   },
   "auth": {
@@ -306,6 +352,22 @@
             {
               "name": "attendanceRecordId",
               "description": "The unique identifier for the attendance record."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/marks/{markId}",
+        "definition": {
+          "entityName": "Mark",
+          "schema": {
+            "$ref": "#/backend/entities/Mark"
+          },
+          "description": "Stores marks for students for various assignments.",
+          "params": [
+            {
+              "name": "markId",
+              "description": "The unique identifier for the mark."
             }
           ]
         }
