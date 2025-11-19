@@ -74,17 +74,20 @@ export default function MarksPage() {
   
   const courseIds = useMemo(() => courses?.map(c => c.id) || [], [courses]);
 
-  const recentMarksQuery = useMemo(() => {
-    if (!firestore || courseIds.length === 0) return null;
-    // This query is now secure, as it only asks for marks within the instructor's courses.
+  const allMarksQuery = useMemo(() => {
+    if (!firestore) return null;
     return query(
-        collection(firestore, 'marks'), 
-        where('courseId', 'in', courseIds), 
+        collection(firestore, 'marks'),
         orderBy('timestamp', 'desc')
     );
-  }, [firestore, courseIds]);
+  }, [firestore]);
 
-  const { data: recentMarks, isLoading: isLoadingMarks } = useCollection<Mark>(recentMarksQuery);
+  const { data: allMarks, isLoading: isLoadingMarks } = useCollection<Mark>(allMarksQuery);
+
+  const recentMarks = useMemo(() => {
+    if (!allMarks || !courseIds) return [];
+    return allMarks.filter(mark => courseIds.includes(mark.courseId));
+  }, [allMarks, courseIds]);
 
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
@@ -243,7 +246,7 @@ export default function MarksPage() {
             </CardDescription>
         </CardHeader>
         <CardContent>
-            {(isLoading || (courseIds.length > 0 && isLoadingMarks)) ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+            {isLoading ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
                  <Table>
                     <TableHeader>
                         <TableRow>
