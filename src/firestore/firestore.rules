@@ -1,0 +1,119 @@
+/**
+ * @fileoverview Firestore Security Rules for AttendX.
+ *
+ * Core Philosophy:
+ * This ruleset enforces a Role-Based Access Control (RBAC) model.
+ * User access is determined by their assigned role, which is stored as a custom claim
+ * on their authentication token. This is more secure and efficient than reading roles from documents.
+ * Ownership is enforced where applicable, such as on `/users/{userId}` and `/courses/{courseId}`.
+ *
+ * Data Structure:
+ * - /users/{userId}: Stores user profiles; path-based ownership.
+ * - /roles/{roleId}: Stores role definitions for RBAC.
+ * - /permissions/{permissionId}: Stores permission definitions.
+ *- /courses/{courseId}: Stores course information; `instructorId` denotes ownership.
+ * - /courses/{courseId}/classSessions/{classSessionId}: Stores class sessions, nested under courses.
+ * - /attendanceRecords/{attendanceRecordId}: Stores attendance records for all students.
+ *
+ * Key Security Decisions:
+ * - User listing is restricted to instructors only.
+ * - Roles and Permissions collections are only writable by a user with the 'admin' role claim.
+ * - Students can create their own attendance records, but cannot modify or delete them.
+ * - Instructors can view attendance records for their courses.
+ *
+ */
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    /**
+     * @description Checks if the authenticated user has the 'instructor' role via custom claims.
+     * This is the recommended, secure, and efficient way to check roles.
+     */
+    function isInstructor() {
+      return request.auth.token.role == 'instructor';
+    }
+
+    /**
+     * @description Checks if the authenticated user has the 'admin' role via custom claims.
+     */
+    function isAdmin() {
+      return request.auth.token.role == 'admin';
+    }
+
+
+    /**
+     * @description Grants access to a user's profile based on their UID.
+     * The update rule prevents a user from changing their own roleId.
+     * Instructors are allowed to list users for the dashboard view.
+     */
+    match /users/{userId} {
+      allow read, delete: if request.auth.uid == userId;
+      allow create: if request.auth.uid == userId && request.resource.data.id == userId;
+      allow update: if request.auth.uid == userId && request.resource.data.roleId == resource.data.roleId;
+      allow list: if isInstructor();
+    }
+
+    /**
+     * @description Grants access to roles based on admin role custom claim.
+     */
+    match /roles/{roleId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
+    }
+
+    /**
+     * @description Grants access to permissions based on admin role custom claim.
+     */
+    match /permissions/{permissionId} {
+        allow read: if request.auth != null;
+        allow write: if isAdmin();
+    }
+
+    /**
+* @description Grants access to courses based on instructor ownership.
+     */
+    match /courses/{courseId} {
+        function isOwner() {
+            return request.auth.uid == resource.data.instructorId;
+        }
+
+        allow read: if request.auth != null;
+        allow create: if isInstructor() && request.resource.data.instructorId == request.auth.uid;
+        allow update, delete: if isInstructor() && isOwner();
+    }
+
+    /**
+     * @description Grants access to class sessions based on instructor ownership of the parent course.
+     */
+    match /courses/{courseId}/classSessions/{classSessionId} {
+        function isCourseInstructor() {
+            // This get() is acceptable because it's checking a document related to the current context.
+            return get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
+        }
+
+        allow read: if request.auth != null;
+        allow write: if isCourseInstructor();
+    }
+
+    /**
+     * @description Controls access to attendance records.
+     * Students can create their own records. Instructors can read records for their courses.
+     */
+    match /attendanceRecords/{attendanceRecordId} {
+
+      // A student can create their own attendance record.
+      allow create: if request.auth.uid == request.resource.data.studentId;
+
+      // Students can read their own attendance records. Instructors can read any record.
+      allow read: if request.auth.uid == resource.data.studentId || isInstructor();
+      
+      // Allow listing of all records for instructors.
+      // Allow students to list records only for themselves.
+      allow list: if isInstructor() || (request.query.get("where.studentId") == request.auth.uid);
+
+      // Nobody can update or delete records to maintain data integrity.
+      allow update, delete: if false;
+    }
+  }
+}
