@@ -97,9 +97,9 @@ export default function DashboardPage() {
   }, [studentsData, attendanceRecords]);
 
 
-  const presentStudents = studentsWithAttendance.filter(s => s.attendanceStatus === 'Present').length;
-  const totalStudents = studentsWithAttendance.length;
-  const attendancePercentage = totalStudents > 0 ? Math.round((presentStudents / totalStudents) * 100) : 0;
+  const presentStudents = useMemo(() => studentsWithAttendance.filter(s => s.attendanceStatus === 'Present').length, [studentsWithAttendance]);
+  const totalStudents = useMemo(() => studentsWithAttendance.length, [studentsWithAttendance]);
+  const attendancePercentage = useMemo(() => totalStudents > 0 ? Math.round((presentStudents / totalStudents) * 100) : 0, [presentStudents, totalStudents]);
 
   const onSummarize = () => {
     startTransition(async () => {
