@@ -67,7 +67,7 @@ export default function InstructorDashboardPage() {
   }, [firestore]);
   const { data: studentsData, isLoading: isLoadingStudents } = useCollection<Omit<Student, 'attendanceHistory' | 'attendanceStatus'>>(studentsQuery);
 
-  // 2. Fetch today's attendance records in realtime, with a stable date range
+  // 2. Fetch today's attendance records in realtime
   const todayRange = useMemo(() => getDayRange(new Date()), []);
   const attendanceQuery = useMemo(() => {
     if (!firestore) return null;

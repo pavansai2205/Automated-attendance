@@ -16,7 +16,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
 import { useDoc, useCollection, useFirestore } from '@/firebase';
-import { doc, collection, query, where, orderBy } from 'firebase/firestore';
+import { doc, collection, query, where } from 'firebase/firestore';
 import { notFound } from 'next/navigation';
 
 interface StudentDetailPageProps {
@@ -39,12 +39,11 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
   const studentDocRef = useMemo(() => firestore ? doc(firestore, 'users', studentId) : null, [firestore, studentId]);
   const { data: student, isLoading: isLoadingStudent } = useDoc<Omit<StudentType, 'id' | 'name' | 'attendanceHistory' | 'attendanceStatus'>>(studentDocRef);
 
-  // Fetch student attendance history in realtime, filtering only by studentId.
+  // Fetch student attendance history in realtime
   const attendanceQuery = useMemo(() => firestore ? query(
     collection(firestore, 'attendanceRecords'), 
     where('studentId', '==', studentId)
-    // Sorting will be done on the client side to avoid needing a composite index.
-    ) : null, [firestore, studentId]);
+  ) : null, [firestore, studentId]);
   const { data: attendanceHistory, isLoading: isLoadingHistory } = useCollection<AttendanceRecord>(attendanceQuery);
   
   // Sort the history client-side
@@ -75,7 +74,7 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
   }
 
   const studentName = `${student.firstName} ${student.lastName}`;
-  const avatarUrl = student.faceTemplate || `https://i.pravatar.cc/150?u=${student.id}`;
+  const avatarUrl = student.faceTemplate || `https://i.pravatar.cc/150?u=${studentId}`;
 
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {

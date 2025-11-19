@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -19,17 +19,15 @@ export default function FaceRegistration() {
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const userDocRef = user && firestore ? doc(firestore, 'users', user.uid) : null;
+  const userDocRef = useMemo(() => (user && firestore ? doc(firestore, 'users', user.uid) : null), [user, firestore]);
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
   const hasRegisteredFace = !!userData?.faceTemplate;
 
    useEffect(() => {
-    // This effect now only handles camera initialization and cleanup
     let stream: MediaStream;
 
     const getCameraPermission = async () => {
-      // Only request camera if the user hasn't registered a face
       if (!hasRegisteredFace) {
         try {
           stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -48,7 +46,6 @@ export default function FaceRegistration() {
     getCameraPermission();
 
     return () => {
-      // Clean up the stream when the component unmounts
       if (stream) {
         stream.getTracks().forEach(track => track.stop());
       }
@@ -57,7 +54,7 @@ export default function FaceRegistration() {
          cleanupStream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [hasRegisteredFace]); // Only re-run if registration status changes
+  }, [hasRegisteredFace]);
 
 
   const registerFace = async () => {

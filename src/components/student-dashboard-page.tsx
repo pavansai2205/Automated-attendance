@@ -41,10 +41,11 @@ export default function StudentDashboardPage() {
   
   const sortedHistory = useMemo(() => {
     if (!attendanceHistory) return [];
-    return attendanceHistory
-      .sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis())
-      .slice(0, 5);
+    // Sort client-side
+    return attendanceHistory.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
   }, [attendanceHistory]);
+  
+  const latestFiveRecords = useMemo(() => sortedHistory.slice(0, 5), [sortedHistory]);
 
   const latestRecord = useMemo(() => {
     if (!sortedHistory || sortedHistory.length === 0) return null;
@@ -140,8 +141,8 @@ export default function StudentDashboardPage() {
             </div>
           ) : (
             <ul className="space-y-2">
-              {sortedHistory && sortedHistory.length > 0 ? (
-                sortedHistory.map((record) => (
+              {latestFiveRecords && latestFiveRecords.length > 0 ? (
+                latestFiveRecords.map((record) => (
                   <li
                     key={record.id}
                     className="flex justify-between items-center p-2 rounded-md even:bg-secondary"
