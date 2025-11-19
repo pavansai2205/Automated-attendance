@@ -5,19 +5,19 @@ import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import StudentAttendanceTaker from "@/components/student-attendance-taker";
 import InstructorAttendanceTaker from "@/components/instructor-attendance-taker";
-import { useUser, useDoc, useMemoFirebase } from "@/firebase";
-import { doc, getFirestore } from "firebase/firestore";
+import { useUser, useDoc, useMemoFirebase, useFirestore } from "@/firebase";
+import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function AttendancePage() {
   const { user, isUserLoading } = useUser();
-  const firestore = getFirestore();
+  const firestore = useFirestore();
   const router = useRouter();
 
   const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
+    if (!user || !firestore) return null;
     return doc(firestore, 'users', user.uid);
   }, [user, firestore]);
 

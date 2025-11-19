@@ -61,16 +61,22 @@ export default function DashboardPage() {
   const firestore = useFirestore();
 
   // 1. Fetch all students in realtime
-  const studentsQuery = useMemoFirebase(() => query(collection(firestore, 'users'), where('roleId', '==', 'student')), [firestore]);
+  const studentsQuery = useMemoFirebase(() => {
+    if (!firestore) return null;
+    return query(collection(firestore, 'users'), where('roleId', '==', 'student'));
+  }, [firestore]);
   const { data: studentsData, isLoading: isLoadingStudents } = useCollection<Omit<Student, 'attendanceHistory' | 'attendanceStatus'>>(studentsQuery);
 
   // 2. Fetch today's attendance records in realtime
   const { start: startOfToday, end: endOfToday } = getDayRange(new Date());
-  const attendanceQuery = useMemoFirebase(() => query(
-      collection(firestore, 'attendanceRecords'),
-      where('timestamp', '>=', Timestamp.fromDate(startOfToday)),
-      where('timestamp', '<=', Timestamp.fromDate(endOfToday))
-  ), [startOfToday, endOfToday, firestore]);
+  const attendanceQuery = useMemoFirebase(() => {
+      if (!firestore) return null;
+      return query(
+        collection(firestore, 'attendanceRecords'),
+        where('timestamp', '>=', Timestamp.fromDate(startOfToday)),
+        where('timestamp', '<=', Timestamp.fromDate(endOfToday))
+      )
+    }, [firestore, startOfToday, endOfToday]);
   const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
   
   // 3. Combine students and their attendance status
