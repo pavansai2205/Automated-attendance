@@ -22,12 +22,17 @@ import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { Textarea } from '@/components/ui/textarea';
 
 const formSchema = z.object({
   firstName: z.string().min(1, { message: 'First name is required.' }),
   lastName: z.string().min(1, { message: 'Last name is required.' }),
   email: z.string().email({ message: 'Invalid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
+  phoneNumber: z.string().optional(),
+  address: z.string().optional(),
+  parentName: z.string().optional(),
+  parentPhoneNumber: z.string().optional(),
 });
 
 export default function StudentSignupPage() {
@@ -44,6 +49,10 @@ export default function StudentSignupPage() {
       lastName: '',
       email: '',
       password: '',
+      phoneNumber: '',
+      address: '',
+      parentName: '',
+      parentPhoneNumber: '',
     },
   });
 
@@ -61,6 +70,10 @@ export default function StudentSignupPage() {
           lastName: values.lastName,
           email: values.email,
           roleId: 'student',
+          phoneNumber: values.phoneNumber,
+          address: values.address,
+          parentName: values.parentName,
+          parentPhoneNumber: values.parentPhoneNumber,
         };
         setDocumentNonBlocking(userRef, userData, { merge: true });
 
@@ -85,10 +98,10 @@ export default function StudentSignupPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center">
+    <div className="relative flex min-h-screen items-center justify-center py-12">
       <div className="absolute inset-0 -z-10 h-full w-full bg-background bg-[linear-gradient(to_right,#8080800a_1px,transparent_1px),linear-gradient(to_bottom,#8080800a_1px,transparent_1px)] bg-[size:14px_24px]"></div>
       <div className="absolute inset-0 -z-20 h-full w-full bg-gradient-to-r from-primary/80 via-accent/80 to-secondary/80 animate-animated-gradient bg-[length:300%_300%]"></div>
-      <Card className="w-full max-w-md bg-card/80 backdrop-blur-sm">
+      <Card className="w-full max-w-lg bg-card/80 backdrop-blur-sm">
         <CardHeader>
           <CardTitle>Student Registration</CardTitle>
           <CardDescription>Enter your details to create your student account.</CardDescription>
@@ -150,6 +163,60 @@ export default function StudentSignupPage() {
                   </FormItem>
                 )}
               />
+               <FormField
+                control={form.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Your phone number" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <FormField
+                control={form.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Address</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Your home address" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+               <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="parentName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Parent's Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Parent's full name" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="parentPhoneNumber"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Parent's Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Parent's phone number" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
               <Button type="submit" className="w-full" disabled={isLoading}>
                 {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 Create Student Account

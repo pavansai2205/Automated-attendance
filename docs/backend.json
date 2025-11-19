@@ -30,6 +30,22 @@
         "faceTemplate": {
           "type": "string",
           "description": "A base64 encoded data URI of the user's registered face for recognition."
+        },
+        "phoneNumber": {
+          "type": "string",
+          "description": "The phone number of the student."
+        },
+        "address": {
+          "type": "string",
+          "description": "The home address of the student."
+        },
+        "parentName": {
+          "type": "string",
+          "description": "The name of the student's parent or guardian."
+        },
+        "parentPhoneNumber": {
+          "type": "string",
+          "description": "The phone number of the student's parent or guardian."
         }
       },
       "required": [
