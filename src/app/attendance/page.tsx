@@ -3,15 +3,25 @@
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import AttendanceTaker from "@/components/attendance-taker";
-import { useUser } from "@/firebase";
+import StudentAttendanceTaker from "@/components/student-attendance-taker";
+import InstructorAttendanceTaker from "@/components/instructor-attendance-taker";
+import { useUser, useDoc, useMemoFirebase } from "@/firebase";
+import { doc, getFirestore } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function AttendancePage() {
   const { user, isUserLoading } = useUser();
+  const firestore = getFirestore();
   const router = useRouter();
+
+  const userDocRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
@@ -19,13 +29,17 @@ export default function AttendancePage() {
     }
   }, [user, isUserLoading, router]);
 
-  if (isUserLoading || !user) {
+  const isLoading = isUserLoading || isUserDocLoading;
+  const role = userData?.roleId;
+
+  if (isLoading || !user) {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
       </div>
     );
   }
+
   return (
     <SidebarProvider>
       <Sidebar>
@@ -34,7 +48,7 @@ export default function AttendancePage() {
       <SidebarInset>
         <AppHeader />
         <main className="p-4 lg:p-6">
-          <AttendanceTaker />
+          {role === 'instructor' ? <InstructorAttendanceTaker /> : <StudentAttendanceTaker />}
         </main>
       </SidebarInset>
     </SidebarProvider>

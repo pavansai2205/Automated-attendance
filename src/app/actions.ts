@@ -3,24 +3,12 @@
 import { summarizeAttendanceTrends } from '@/ai/flows/summarize-attendance-trends';
 import { generateAbsenceJustification, type AbsenceJustificationInput } from '@/ai/flows/generate-absence-justification';
 import { detectFaceAndMarkAttendance } from '@/ai/flows/detect-face';
+import { recognizeStudentFace } from '@/ai/flows/recognize-face';
 import { course } from '@/lib/data';
-import { addDoc, collection, serverTimestamp, getFirestore } from 'firebase/firestore';
-import { initializeApp, getApps } from 'firebase/app';
-import { firebaseConfig } from '@/firebase/config';
-import { getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
-import { initializeApp as initializeAdminApp, getApps as getAdminApps } from 'firebase-admin/app';
+import { initializeFirebase } from '@/firebase/server-init';
+import { addDoc, collection, serverTimestamp } from 'firebase/firestore';
 
-// This is a server-side action file. We should use the admin SDK here when appropriate,
-// but for client-invoked actions that need to respect security rules, we should
-// perform writes on the client. For this fix, we will simply use the client SDK
-// on the server, which is not ideal but matches the existing structure.
-if (!getApps().length) {
-  initializeApp(firebaseConfig);
-}
-
-// We get the client-side `firestore` instance here.
-const firestore = getFirestore();
-
+const { firestore } = initializeFirebase();
 
 export async function handleSummarizeTrends() {
   try {
@@ -61,7 +49,6 @@ export async function handleMarkAttendance(photoDataUri: string, studentId: stri
       return { success: false, error: 'No face detected. Please make sure you are in the frame.' };
     }
 
-    // This is a placeholder for a real class session
     const classSessionId = "CS101-SESSION-01"; 
 
     const attendanceRecord = {
@@ -78,5 +65,38 @@ export async function handleMarkAttendance(photoDataUri: string, studentId: stri
   } catch (error) {
     console.error(error);
     return { success: false, error: 'Failed to mark attendance due to a server error.' };
+  }
+}
+
+export async function handleRecognizeAndMarkAttendance(photoDataUri: string) {
+  try {
+    const studentDirectory = JSON.stringify(course.students.map(s => ({ id: s.id, name: s.name })));
+    const { recognizedStudentId } = await recognizeStudentFace({ photoDataUri, studentDirectory });
+
+    if (!recognizedStudentId) {
+      return { success: false, error: 'No student recognized in the photo.' };
+    }
+    
+    const student = course.students.find(s => s.id === recognizedStudentId);
+    if (!student) {
+        return { success: false, error: 'Recognized student not found in directory.' };
+    }
+
+    const classSessionId = "CS101-SESSION-01";
+
+    const attendanceRecord = {
+      studentId: recognizedStudentId,
+      classSessionId,
+      timestamp: serverTimestamp(),
+      status: 'Present',
+    };
+
+    const attendanceRef = collection(firestore, 'attendanceRecords');
+    await addDoc(attendanceRef, attendanceRecord);
+
+    return { success: true, studentName: student.name };
+  } catch (error) {
+    console.error(error);
+    return { success: false, error: 'Failed to recognize student or mark attendance.' };
   }
 }
