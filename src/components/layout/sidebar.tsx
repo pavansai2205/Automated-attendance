@@ -16,7 +16,6 @@ import {
   CheckCircle,
   Camera,
   CalendarDays,
-  GraduationCap,
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
@@ -29,7 +28,6 @@ const allMenuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/attendance', label: 'Attendance', icon: Camera, roles: ['instructor'] },
   { href: '/timetable', label: 'Timetable', icon: CalendarDays, roles: ['instructor'] },
-  { href: '/marks', label: 'Marks', icon: GraduationCap, roles: ['instructor'] },
   { href: '/students', label: 'Students', icon: Users, roles: ['instructor'] },
   { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['instructor'] },
   { href: '/settings', label: 'Settings', icon: Settings },

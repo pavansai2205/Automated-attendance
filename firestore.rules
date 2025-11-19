@@ -116,27 +116,5 @@ service cloud.firestore {
       // Nobody can update or delete records to maintain data integrity.
       allow update, delete: if false;
     }
-    
-    /**
-     * @description Controls access to marks.
-     * Instructors can create marks. Students can only read their own marks.
-     */
-    match /marks/{markId} {
-        function isCourseInstructor(courseId) {
-            return get(/databases/$(database)/documents/courses/$(courseId)).data.instructorId == request.auth.uid;
-        }
-
-        // Instructors can create marks for courses they teach.
-        allow create: if isInstructor() && isCourseInstructor(request.resource.data.courseId);
-        
-        // Students can read their own marks. Instructors can read any marks for courses they teach.
-        allow read: if request.auth.uid == resource.data.studentId || (isInstructor() && isCourseInstructor(resource.data.courseId));
-
-        // Students can only list their own marks. Instructors can list all marks and filter on the client.
-        allow list: if isInstructor() || (request.query.where.studentId == request.auth.uid);
-
-        // No one can update or delete to maintain integrity.
-        allow update, delete: if false;
-    }
   }
 }

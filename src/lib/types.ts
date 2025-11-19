@@ -37,13 +37,3 @@ export interface ReportData {
     date: string;
     status: AttendanceStatus;
 }
-
-export interface Mark {
-    id: string;
-    studentId: string;
-    courseId: string;
-    assignmentName: string;
-    score: number;
-    totalScore: number;
-    timestamp: Timestamp;
-}
