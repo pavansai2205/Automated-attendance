@@ -57,7 +57,7 @@ export default function LoginPage() {
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const userRole = userData.roleId;
+          const userRole = userData.roleId; 
 
           if (userRole) {
             // 3. Set custom claim for the user's role to sync permissions
