@@ -46,44 +46,42 @@ export default function LoginPage() {
   async function onSubmit(values: z.infer<typeof formSchema>) {
     setIsLoading(true);
     try {
-      // 1. Sign in the user
       const userCredential = await signInWithEmailAndPassword(auth, values.email, values.password);
       const user = userCredential.user;
 
       if (user) {
-        // 2. Fetch the user's document from Firestore to get their role
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
         if (userDoc.exists()) {
           const userData = userDoc.data();
-          const userRole = userData.roleId; 
+          const userRole = userData.roleId;
 
           if (userRole) {
-            // 3. Set custom claim for the user's role to sync permissions
-            await fetch('/api/set-role', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ uid: user.uid, role: userRole }),
+            const response = await fetch('/api/set-role', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ uid: user.uid, role: userRole }),
             });
 
-            // 4. Force refresh the token to get the custom claim immediately
-            await user.getIdToken(true);
+            if (!response.ok) {
+                throw new Error("Failed to set user role.");
+            }
 
-            // 5. Role is set, proceed to dashboard
+            await user.getIdToken(true);
+            router.refresh(); 
             router.push('/');
+
           } else {
-             // This case should ideally not happen if signup is working correctly
-             await signOut(auth);
-             toast({
-                variant: 'destructive',
-                title: 'Login Failed',
-                description: 'Your user profile is missing a role. Please contact support.',
-             });
-             setIsLoading(false);
+            await signOut(auth);
+            toast({
+              variant: 'destructive',
+              title: 'Login Failed',
+              description: 'Your user profile is missing a role. Please contact support.',
+            });
+            setIsLoading(false);
           }
         } else {
-          // No user document found, something is wrong.
           await signOut(auth);
           toast({
             variant: 'destructive',
