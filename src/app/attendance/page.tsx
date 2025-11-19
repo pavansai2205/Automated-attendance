@@ -8,7 +8,7 @@ import InstructorAttendanceTaker from "@/components/instructor-attendance-taker"
 import { useUser, useDoc, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Loader2 } from "lucide-react";
 
 export default function AttendancePage() {
@@ -16,8 +16,10 @@ export default function AttendancePage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  // The userDocRef will be stable because `user` and `firestore` are stable
-  const userDocRef = user && firestore ? doc(firestore, 'users', user.uid) : null;
+  const userDocRef = useMemo(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 

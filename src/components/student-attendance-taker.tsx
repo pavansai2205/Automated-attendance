@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useCallback } from 'react';
+import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -25,7 +25,10 @@ export default function StudentAttendanceTaker() {
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(true);
   const { toast } = useToast();
 
-  const userDocRef = user && firestore ? doc(firestore, 'users', user.uid) : null;
+  const userDocRef = useMemo(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
   const hasRegisteredFace = !!userData?.faceTemplate;
