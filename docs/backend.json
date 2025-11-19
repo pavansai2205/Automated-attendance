@@ -200,6 +200,51 @@
         "description",
         "instructorId"
       ]
+    },
+    "Mark": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Mark",
+      "type": "object",
+      "description": "Represents a mark or grade for a student in a course.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the Mark entity."
+        },
+        "studentId": {
+          "type": "string",
+          "description": "Reference to User (Student)."
+        },
+        "courseId": {
+          "type": "string",
+          "description": "Reference to Course."
+        },
+        "assignmentName": {
+          "type": "string",
+          "description": "The name of the assignment or test."
+        },
+        "score": {
+          "type": "number",
+          "description": "The score the student received."
+        },
+        "totalScore": {
+          "type": "number",
+          "description": "The total possible score for the assignment."
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time",
+          "description": "The date the mark was recorded."
+        }
+      },
+      "required": [
+        "studentId",
+        "courseId",
+        "assignmentName",
+        "score",
+        "totalScore",
+        "timestamp"
+      ]
     }
   },
   "auth": {
@@ -309,7 +354,25 @@
             }
           ]
         }
+      },
+      {
+        "path": "/marks/{markId}",
+        "definition": {
+          "entityName": "Mark",
+          "schema": {
+            "$ref": "#/backend/entities/Mark"
+          },
+          "description": "Stores marks for students. Students can only read their own marks.",
+          "params": [
+            {
+              "name": "markId",
+              "description": "The unique identifier for the mark."
+            }
+          ]
+        }
       }
     ]
   }
 }
+
+    

@@ -4,7 +4,7 @@ import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { AuthGuard } from "@/components/auth-guard";
-import MarksPage from "@/components/marks-page";
+import StudentMarksView from "@/components/student-marks-view";
 
 function MarksContent() {
  return (
@@ -15,7 +15,7 @@ function MarksContent() {
       <SidebarInset>
         <AppHeader />
         <main className="p-4 lg:p-6">
-          <MarksPage />
+          <StudentMarksView />
         </main>
       </SidebarInset>
     </SidebarProvider>
@@ -24,8 +24,10 @@ function MarksContent() {
 
 export default function Page() {
   return (
-    <AuthGuard requiredRole="instructor">
+    <AuthGuard requiredRole="student">
       <MarksContent />
     </AuthGuard>
   );
 }
+
+    
