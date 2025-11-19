@@ -86,8 +86,7 @@ export default function StudentDashboardPage() {
   const displayName = userData ? `Welcome, ${userData.firstName}!` : 'Welcome!';
 
   return (
-    <div className="grid gap-4 md:gap-6 md:grid-cols-2">
-      <div className="space-y-6">
+    <div className="space-y-6">
         <FaceRegistration />
         <Card>
           <CardHeader>
@@ -173,53 +172,6 @@ export default function StudentDashboardPage() {
             )}
           </CardContent>
         </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <UserIcon />
-            My Profile
-          </CardTitle>
-          <CardDescription>Your personal and contact information.</CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          {isLoading ? (
-             <div className="flex justify-center items-center h-40">
-                <Loader2 className="h-8 w-8 animate-spin" />
-             </div>
-          ) : userData ? (
-            <>
-              <div className="font-semibold text-base">{`${userData.firstName} ${userData.lastName}`}</div>
-              <div className="text-muted-foreground">{userData.email}</div>
-              <div className="border-t border-border pt-4 mt-4 space-y-4">
-                <div className='flex items-center gap-3'>
-                    <Phone className='text-muted-foreground' />
-                    <span>{userData.phoneNumber || 'Not provided'}</span>
-                </div>
-                <div className='flex items-start gap-3'>
-                    <Home className='text-muted-foreground mt-1' />
-                    <span className='flex-1'>{userData.address || 'Not provided'}</span>
-                </div>
-              </div>
-              <div className="border-t border-border pt-4 mt-4 space-y-4">
-                <div className='font-medium flex items-center gap-2'><Shield /> Guardian Information</div>
-                <div className='flex items-center gap-3'>
-                    <UserIcon className='text-muted-foreground' />
-                    <span>{userData.parentName || 'Not provided'}</span>
-                </div>
-                 <div className='flex items-center gap-3'>
-                    <Phone className='text-muted-foreground' />
-                    <span>{userData.parentPhoneNumber || 'Not provided'}</span>
-                </div>
-              </div>
-            </>
-          ) : (
-            <p>Could not load profile information.</p>
-          )}
-        </CardContent>
-      </Card>
-
     </div>
   );
 }
