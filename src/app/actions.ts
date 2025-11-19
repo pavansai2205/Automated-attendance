@@ -156,4 +156,31 @@ export async function handleRegisterFace(photoDataUri: string, userId: string) {
     }
 }
 
+export async function handleCreateClassSession(courseId: string, startTime: Date, endTime: Date) {
+    try {
+        if (!courseId || !startTime || !endTime) {
+            return { success: false, error: 'Missing required fields.' };
+        }
+
+        if (startTime >= endTime) {
+            return { success: false, error: 'Start time must be before end time.' };
+        }
+        
+        // The path to the nested collection
+        const classSessionsRef = collection(firestore, 'courses', courseId, 'classSessions');
+        
+        const newSession = {
+            courseId, // Denormalizing for security rule convenience
+            startTime: serverTimestamp.fromDate(startTime),
+            endTime: serverTimestamp.fromDate(endTime),
+        };
+
+        await addDoc(classSessionsRef, newSession);
+
+        return { success: true };
+    } catch (error) {
+        console.error('Error creating class session:', error);
+        return { success: false, error: 'Failed to create class session.' };
+    }
+}
     
