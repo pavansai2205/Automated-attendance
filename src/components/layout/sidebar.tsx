@@ -20,9 +20,9 @@ import { usePathname } from 'next/navigation';
 
 const menuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '#', label: 'Students', icon: Users },
-  { href: '#', label: 'Reports', icon: BarChart3 },
-  { href: '#', label: 'Settings', icon: Settings },
+  { href: '/students', label: 'Students', icon: Users },
+  { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AppSidebar() {

@@ -13,6 +13,7 @@ import {
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { LogOut, User } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import placeholderImages from '@/lib/placeholder-images.json';
 
 export function AppHeader() {
@@ -51,14 +52,18 @@ export function AppHeader() {
               </div>
             </DropdownMenuLabel>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <User className="mr-2 h-4 w-4" />
-              <span>Profile</span>
+            <DropdownMenuItem asChild>
+              <Link href="#">
+                <User className="mr-2 h-4 w-4" />
+                <span>Profile</span>
+              </Link>
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
-              <LogOut className="mr-2 h-4 w-4" />
-              <span>Log out</span>
+            <DropdownMenuItem asChild>
+              <Link href="#">
+                <LogOut className="mr-2 h-4 w-4" />
+                <span>Log out</span>
+              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
