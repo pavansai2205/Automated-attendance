@@ -11,7 +11,7 @@
  * - /users/{userId}: Stores user profiles; path-based ownership.
  * - /roles/{roleId}: Stores role definitions for RBAC.
  * - /permissions/{permissionId}: Stores permission definitions.
- * - /courses/{courseId}: Stores course information; `instructorId` denotes ownership.
+ *- /courses/{courseId}: Stores course information; `instructorId` denotes ownership.
  * - /courses/{courseId}/classSessions/{classSessionId}: Stores class sessions, nested under courses.
  * - /attendanceRecords/{attendanceRecordId}: Stores attendance records for all students.
  *
@@ -109,6 +109,10 @@ service cloud.firestore {
 
       // Students can read their own attendance records.
       allow read: if request.auth.uid == resource.data.studentId;
+      
+      // Students can list their own attendance records.
+      allow list: if request.auth.uid == request.query.where.studentId;
+
 
       // Nobody can update or delete records to maintain data integrity.
       allow update, delete: if false;
