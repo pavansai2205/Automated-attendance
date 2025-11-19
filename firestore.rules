@@ -14,7 +14,6 @@
  *- /courses/{courseId}: Stores course information; `instructorId` denotes ownership.
  * - /courses/{courseId}/classSessions/{classSessionId}: Stores class sessions, nested under courses.
  * - /attendanceRecords/{attendanceRecordId}: Stores attendance records for all students.
- * - /marks/{markId}: Stores marks for students.
  *
  * Key Security Decisions:
  * - User listing is restricted to instructors only.
@@ -116,22 +115,5 @@ service cloud.firestore {
       // Nobody can update or delete records to maintain data integrity.
       allow update, delete: if false;
     }
-
-    /**
-     * @description Controls access to student marks.
-     */
-    match /marks/{markId} {
-      // Students can only read their own marks.
-      allow read: if request.auth.uid == resource.data.studentId;
-
-      // Students can only list marks for themselves.
-      allow list: if request.query.where.studentId == request.auth.uid;
-
-      // For now, nobody can create, update, or delete marks directly.
-      // This would typically be handled by a secure backend function or an instructor role.
-      allow write: if false;
-    }
   }
 }
-
-    
