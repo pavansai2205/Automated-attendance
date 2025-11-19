@@ -167,7 +167,7 @@ export default function SignupPage() {
                       </SelectContent>
                     </Select>
                     <FormDescription>
-                      Choose whether you are a student or an instructor.
+                      Choose your role. This cannot be changed later.
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
