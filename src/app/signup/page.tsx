@@ -63,6 +63,7 @@ export default function SignupPage() {
       const user = userCredential.user;
 
       if (user) {
+        // Step 1: Create user document in Firestore
         const userRef = doc(firestore, 'users', user.uid);
         const userData = {
           id: user.uid,
@@ -71,8 +72,20 @@ export default function SignupPage() {
           email: values.email,
           roleId: values.roleId,
         };
-        // This is a non-blocking call
+        // This is a non-blocking call for Firestore
         setDocumentNonBlocking(userRef, userData, { merge: true });
+
+        // Step 2: Set custom claim for the user's role
+        // This is a critical step for the security rules to work correctly.
+        await fetch('/api/set-role', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ uid: user.uid, role: values.roleId }),
+        });
+
+        // Step 3: Force refresh the token to get the custom claim immediately
+        await user.getIdToken(true);
+        
         router.push('/');
       }
     } catch (error: any) {
