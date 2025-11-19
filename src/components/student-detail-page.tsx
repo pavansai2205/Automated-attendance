@@ -1,7 +1,7 @@
 'use client';
 
 import { useTransition, useState } from 'react';
-import type { Student } from '@/lib/types';
+import type { Student as StudentType, AttendanceRecord } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -15,10 +15,12 @@ import { Loader2, Wand2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { course } from '@/lib/data';
+import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { doc, collection, query, where, orderBy } from 'firebase/firestore';
+import { notFound } from 'next/navigation';
 
 interface StudentDetailPageProps {
-  student: Student;
+  studentId: string;
 }
 
 const formSchema = z.object({
@@ -26,11 +28,25 @@ const formSchema = z.object({
   additionalDetails: z.string().optional(),
 });
 
-export default function StudentDetailPage({ student }: StudentDetailPageProps) {
+export default function StudentDetailPage({ studentId }: StudentDetailPageProps) {
   const [isPending, startTransition] = useTransition();
   const [emailDraft, setEmailDraft] = useState('');
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
+
+  // Fetch student data in realtime
+  const studentDocRef = useMemoFirebase(() => doc(firestore, 'users', studentId), [firestore, studentId]);
+  const { data: student, isLoading: isLoadingStudent } = useDoc<Omit<StudentType, 'id' | 'name' | 'attendanceHistory' | 'attendanceStatus'>>(studentDocRef);
+
+  // Fetch student attendance history in realtime
+  const attendanceQuery = useMemoFirebase(() => query(
+    collection(firestore, 'attendanceRecords'), 
+    where('studentId', '==', studentId),
+    orderBy('timestamp', 'desc')
+    ), [firestore, studentId]);
+  const { data: attendanceHistory, isLoading: isLoadingHistory } = useCollection<AttendanceRecord>(attendanceQuery);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -40,12 +56,27 @@ export default function StudentDetailPage({ student }: StudentDetailPageProps) {
     },
   });
 
+  if (isLoadingStudent || isLoadingHistory) {
+      return (
+          <div className="flex h-screen w-full items-center justify-center">
+              <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+      )
+  }
+
+  if (!student) {
+    notFound();
+  }
+
+  const studentName = `${student.firstName} ${student.lastName}`;
+  const avatarUrl = student.faceTemplate || `https://i.pravatar.cc/150?u=${student.id}`;
+
   function onSubmit(values: z.infer<typeof formSchema>) {
     startTransition(async () => {
       const result = await handleGenerateJustification({
-        studentName: student.name,
+        studentName: studentName,
         professorName: 'Dr. Alan Grant', // Mock professor
-        courseName: course.name,
+        courseName: 'Introduction to Computer Science',
         absenceReason: values.absenceReason,
         additionalDetails: values.additionalDetails,
       });
@@ -76,13 +107,13 @@ export default function StudentDetailPage({ student }: StudentDetailPageProps) {
       <Card>
         <CardHeader className="flex flex-row items-center gap-4">
           <Avatar className="h-20 w-20">
-            <AvatarImage asChild src={student.avatar}>
-              <Image src={student.avatar} alt={student.name} width={80} height={80} data-ai-hint="person portrait"/>
+            <AvatarImage asChild src={avatarUrl}>
+              <Image src={avatarUrl} alt={studentName} width={80} height={80} data-ai-hint="person portrait"/>
             </AvatarImage>
-            <AvatarFallback className="text-3xl">{student.name.charAt(0)}</AvatarFallback>
+            <AvatarFallback className="text-3xl">{studentName.charAt(0)}</AvatarFallback>
           </Avatar>
           <div>
-            <CardTitle className="text-3xl">{student.name}</CardTitle>
+            <CardTitle className="text-3xl">{studentName}</CardTitle>
             <CardDescription>Student ID: {student.id}</CardDescription>
           </div>
         </CardHeader>
@@ -92,16 +123,20 @@ export default function StudentDetailPage({ student }: StudentDetailPageProps) {
         <Card>
           <CardHeader>
             <CardTitle>Attendance History</CardTitle>
-            <CardDescription>Recent attendance for {course.name}.</CardDescription>
+            <CardDescription>Live attendance for all courses.</CardDescription>
           </CardHeader>
           <CardContent>
              <ul className="space-y-2">
-              {student.attendanceHistory.map((record, index) => (
-                <li key={index} className="flex justify-between items-center p-2 rounded-md even:bg-secondary">
-                  <span>{new Date(record.date).toLocaleDateString()}</span>
+              {attendanceHistory && attendanceHistory.map((record) => (
+                <li key={record.id} className="flex justify-between items-center p-2 rounded-md even:bg-secondary">
+                  <div>
+                    <span>{record.timestamp.toDate().toLocaleDateString()}</span>
+                    <span className='text-xs text-muted-foreground ml-2'>{record.classSessionId}</span>
+                  </div>
                   <span className={`font-medium ${record.status === 'Present' ? 'text-primary' : 'text-destructive'}`}>{record.status}</span>
                 </li>
               ))}
+              {attendanceHistory?.length === 0 && <p className='text-muted-foreground text-sm'>No attendance records found.</p>}
             </ul>
           </CardContent>
         </Card>
@@ -177,3 +212,5 @@ export default function StudentDetailPage({ student }: StudentDetailPageProps) {
     </div>
   );
 }
+
+    

@@ -6,7 +6,6 @@ import { recognizeStudentFace } from '@/ai/flows/recognize-face';
 import { registerFace } from '@/ai/flows/register-face';
 import { verifyStudentFace } from '@/ai/flows/verify-student-face';
 import { detectFaceAndMarkAttendance } from '@/ai/flows/detect-face';
-import { course } from '@/lib/data';
 import { initializeFirebase } from '@/firebase/server-init';
 import { addDoc, collection, serverTimestamp, doc, updateDoc, getDocs, query, where, getDoc } from 'firebase/firestore';
 
@@ -22,18 +21,10 @@ export async function handleDetectFace(photoDataUri: string) {
     }
 }
 
-export async function handleSummarizeTrends() {
+export async function handleSummarizeTrends(courseName: string, attendanceRecords: string) {
   try {
-    const attendanceRecords = JSON.stringify(
-      course.students.map(student => ({
-        name: student.name,
-        status: student.attendanceStatus,
-        history: student.attendanceHistory,
-      }))
-    );
-
     const result = await summarizeAttendanceTrends({
-      courseName: course.name,
+      courseName: courseName,
       attendanceRecords,
     });
     return { success: true, summary: result.summary };
@@ -164,3 +155,5 @@ export async function handleRegisterFace(photoDataUri: string, userId: string) {
         return { success: false, error: 'Failed to register face.' };
     }
 }
+
+    

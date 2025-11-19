@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useTransition } from 'react';
+import { useState, useTransition, useMemo } from 'react';
 import {
   Card,
   CardContent,
@@ -31,13 +31,13 @@ import {
 } from 'recharts';
 import { Button } from '@/components/ui/button';
 import { Wand2, Loader2, ArrowRight } from 'lucide-react';
-import { course, getAttendanceDataForChart } from '@/lib/data';
 import type { AttendanceStatus } from '@/lib/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { handleSummarizeTrends } from '@/app/actions';
-
-const chartData = getAttendanceDataForChart();
+import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { collection, query, where, Timestamp } from 'firebase/firestore';
+import type { Student, AttendanceRecord } from '@/lib/types';
 
 const statusVariant: { [key in AttendanceStatus]: "default" | "destructive" | "secondary" } = {
   Present: 'default',
@@ -45,21 +45,65 @@ const statusVariant: { [key in AttendanceStatus]: "default" | "destructive" | "s
   Late: 'secondary',
 };
 
+// Helper to get start and end of day
+const getDayRange = (date: Date) => {
+    const start = new Date(date);
+    start.setHours(0, 0, 0, 0);
+    const end = new Date(date);
+    end.setHours(23, 59, 59, 999);
+    return { start, end };
+};
+
 export default function DashboardPage() {
   const [isPending, startTransition] = useTransition();
   const [summary, setSummary] = useState('');
   const [error, setError] = useState('');
+  const firestore = useFirestore();
 
-  const students = course.students;
-  const presentStudents = students.filter(s => s.attendanceStatus === 'Present').length;
-  const totalStudents = students.length;
-  const attendancePercentage = Math.round((presentStudents / totalStudents) * 100);
+  // 1. Fetch all students in realtime
+  const studentsQuery = useMemoFirebase(() => query(collection(firestore, 'users'), where('roleId', '==', 'student')), [firestore]);
+  const { data: studentsData, isLoading: isLoadingStudents } = useCollection<Omit<Student, 'attendanceHistory' | 'attendanceStatus'>>(studentsQuery);
+
+  // 2. Fetch today's attendance records in realtime
+  const { start: startOfToday, end: endOfToday } = getDayRange(new Date());
+  const attendanceQuery = useMemoFirebase(() => query(
+      collection(firestore, 'attendanceRecords'),
+      where('timestamp', '>=', Timestamp.fromDate(startOfToday)),
+      where('timestamp', '<=', Timestamp.fromDate(endOfToday))
+  ), [startOfToday, endOfToday, firestore]);
+  const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
+  
+  // 3. Combine students and their attendance status
+  const studentsWithAttendance = useMemo(() => {
+    if (!studentsData) return [];
+    
+    return studentsData.map(student => {
+      const record = attendanceRecords?.find(r => r.studentId === student.id);
+      const status: AttendanceStatus = record ? (record.status as AttendanceStatus) : 'Absent';
+      const avatarUrl = student.faceTemplate || `https://i.pravatar.cc/150?u=${student.id}`;
+      return {
+        ...student,
+        name: `${student.firstName} ${student.lastName}`,
+        avatar: avatarUrl,
+        attendanceStatus: status,
+      };
+    });
+  }, [studentsData, attendanceRecords]);
+
+
+  const presentStudents = studentsWithAttendance.filter(s => s.attendanceStatus === 'Present').length;
+  const totalStudents = studentsWithAttendance.length;
+  const attendancePercentage = totalStudents > 0 ? Math.round((presentStudents / totalStudents) * 100) : 0;
 
   const onSummarize = () => {
     startTransition(async () => {
       setError('');
       setSummary('');
-      const result = await handleSummarizeTrends();
+       if (!attendanceRecords || attendanceRecords.length === 0) {
+        setError('No attendance data available to summarize.');
+        return;
+      }
+      const result = await handleSummarizeTrends("CS101", JSON.stringify(attendanceRecords));
       if (result.success) {
         setSummary(result.summary);
       } else {
@@ -67,6 +111,31 @@ export default function DashboardPage() {
       }
     });
   };
+  
+    // This is mock data for now. A real implementation would query historical data.
+    const getAttendanceDataForChart = () => {
+        const last7Days = Array.from({ length: 7 }).map((_, i) => {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            return d;
+        }).reverse();
+
+        return last7Days.map(date => {
+            const present = Math.floor(Math.random() * (totalStudents - 2)) + 2;
+            const absent = totalStudents - present;
+            return {
+            date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+            Present: present,
+            Absent: absent,
+            };
+        });
+    };
+
+    const chartData = getAttendanceDataForChart();
+
+
+  const isLoading = isLoadingStudents || isLoadingAttendance;
+
 
   return (
     <div className="grid gap-4 md:gap-6">
@@ -77,10 +146,14 @@ export default function DashboardPage() {
             <CardDescription>Today's attendance rate</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="flex items-end justify-between">
-              <span className="text-3xl font-bold">{attendancePercentage}%</span>
-            </div>
-            <Progress value={attendancePercentage} className="mt-2" />
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : (
+              <>
+                <div className="flex items-end justify-between">
+                  <span className="text-3xl font-bold">{attendancePercentage}%</span>
+                </div>
+                <Progress value={attendancePercentage} className="mt-2" />
+              </>
+            )}
           </CardContent>
         </Card>
         <Card>
@@ -89,7 +162,7 @@ export default function DashboardPage() {
             <CardDescription>Total students marked present</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{presentStudents}</div>
+            {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-3xl font-bold">{presentStudents}</div>}
           </CardContent>
         </Card>
         <Card>
@@ -98,7 +171,7 @@ export default function DashboardPage() {
             <CardDescription>Total students marked absent</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-bold">{students.filter(s => s.attendanceStatus === 'Absent').length}</div>
+             {isLoading ? <Loader2 className="h-6 w-6 animate-spin" /> : <div className="text-3xl font-bold">{totalStudents - presentStudents}</div>}
           </CardContent>
         </Card>
         <Card className="bg-primary/10 border-primary/40">
@@ -112,7 +185,7 @@ export default function DashboardPage() {
           <CardContent>
             {summary && <p className="text-sm text-foreground/80 mb-4">{summary}</p>}
             {error && <p className="text-sm text-destructive mb-4">{error}</p>}
-            <Button onClick={onSummarize} disabled={isPending} className="w-full">
+            <Button onClick={onSummarize} disabled={isPending || isLoading} className="w-full">
               {isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Wand2 className="mr-2 h-4 w-4" />}
               {isPending ? 'Analyzing...' : 'Summarize Trends'}
             </Button>
@@ -124,7 +197,7 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Weekly Attendance Trend</CardTitle>
-            <CardDescription>Attendance for {course.name}</CardDescription>
+            <CardDescription>Mock attendance data</CardDescription>
           </CardHeader>
           <CardContent>
             <ResponsiveContainer width="100%" height={300}>
@@ -149,50 +222,54 @@ export default function DashboardPage() {
         <Card>
           <CardHeader>
             <CardTitle>Today's Roll</CardTitle>
-            <CardDescription>Attendance status for all students in {course.name}.</CardDescription>
+            <CardDescription>Live attendance status for all students.</CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Student</TableHead>
-                  <TableHead>ID</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {students.map((student) => (
-                  <TableRow key={student.id}>
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-3">
-                        <Avatar>
-                          <AvatarImage asChild src={student.avatar}>
-                             <Image src={student.avatar} alt={student.name} width={40} height={40} data-ai-hint="person portrait" />
-                          </AvatarImage>
-                          <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
-                        </Avatar>
-                        {student.name}
-                      </div>
-                    </TableCell>
-                    <TableCell className="text-muted-foreground">{student.id}</TableCell>
-                    <TableCell>
-                      <Badge variant={statusVariant[student.attendanceStatus]}>{student.attendanceStatus}</Badge>
-                    </TableCell>
-                    <TableCell className="text-right">
-                       <Button asChild variant="ghost" size="icon">
-                         <Link href={`/students/${student.id}`}>
-                           <ArrowRight className="h-4 w-4" />
-                         </Link>
-                       </Button>
-                    </TableCell>
+            {isLoading ? <div className='flex justify-center items-center h-40'><Loader2 className="h-8 w-8 animate-spin" /></div> : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Student</TableHead>
+                    <TableHead>ID</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {studentsWithAttendance.map((student) => (
+                    <TableRow key={student.id}>
+                      <TableCell className="font-medium">
+                        <div className="flex items-center gap-3">
+                          <Avatar>
+                            <AvatarImage asChild src={student.avatar}>
+                              <Image src={student.avatar} alt={student.name} width={40} height={40} data-ai-hint="person portrait" />
+                            </AvatarImage>
+                            <AvatarFallback>{student.name.charAt(0)}</AvatarFallback>
+                          </Avatar>
+                          {student.name}
+                        </div>
+                      </TableCell>
+                      <TableCell className="text-muted-foreground">{student.id}</TableCell>
+                      <TableCell>
+                        <Badge variant={statusVariant[student.attendanceStatus]}>{student.attendanceStatus}</Badge>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild variant="ghost" size="icon">
+                          <Link href={`/students/${student.id}`}>
+                            <ArrowRight className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>
     </div>
   );
 }
+
+    

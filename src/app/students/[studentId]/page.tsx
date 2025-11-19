@@ -1,7 +1,6 @@
 'use client';
 
-import { notFound, useRouter } from 'next/navigation';
-import { getStudentById } from '@/lib/data';
+import { useRouter } from 'next/navigation';
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
@@ -11,7 +10,6 @@ import { useEffect } from 'react';
 import { Loader2 } from 'lucide-react';
 
 export default function Page({ params }: { params: { studentId: string } }) {
-  const student = getStudentById(params.studentId);
   const { user, isUserLoading } = useUser();
   const router = useRouter();
 
@@ -20,10 +18,6 @@ export default function Page({ params }: { params: { studentId: string } }) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
-
-  if (!student) {
-    notFound();
-  }
 
   if (isUserLoading || !user) {
     return (
@@ -41,9 +35,11 @@ export default function Page({ params }: { params: { studentId: string } }) {
       <SidebarInset>
         <AppHeader />
         <main className="p-4 lg:p-6">
-          <StudentDetailPage student={student} />
+          <StudentDetailPage studentId={params.studentId} />
         </main>
       </SidebarInset>
     </SidebarProvider>
   );
 }
+
+    
