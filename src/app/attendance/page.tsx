@@ -3,37 +3,11 @@
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import StudentAttendanceTaker from "@/components/student-attendance-taker";
 import InstructorAttendanceTaker from "@/components/instructor-attendance-taker";
-import { useUser, useDoc, useFirestore } from "@/firebase";
-import { doc } from "firebase/firestore";
-import { useMemo } from "react";
-import { Loader2 } from "lucide-react";
 import { AuthGuard } from "@/components/auth-guard";
 
 function AttendanceContent() {
-  const { user, isUserLoading } = useUser();
-  const firestore = useFirestore();
-
-  const userDocRef = useMemo(() => {
-    if (!user || !firestore) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
-
-  const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
-
-  const isLoading = isUserLoading || isUserDocLoading;
-  const role = userData?.roleId;
-
-  if (isLoading || !user) {
-    return (
-      <div className="flex h-screen w-full items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
-  }
-
-  return (
+ return (
     <SidebarProvider>
       <Sidebar>
         <AppSidebar />
@@ -41,7 +15,7 @@ function AttendanceContent() {
       <SidebarInset>
         <AppHeader />
         <main className="p-4 lg:p-6">
-          {role === 'instructor' ? <InstructorAttendanceTaker /> : <StudentAttendanceTaker />}
+          <InstructorAttendanceTaker />
         </main>
       </SidebarInset>
     </SidebarProvider>
@@ -50,7 +24,7 @@ function AttendanceContent() {
 
 export default function AttendancePage() {
   return (
-    <AuthGuard>
+    <AuthGuard requiredRole="instructor">
       <AttendanceContent />
     </AuthGuard>
   );

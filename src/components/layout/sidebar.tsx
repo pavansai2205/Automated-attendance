@@ -18,21 +18,39 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useUser } from '@/firebase';
+import { useUser, useDoc, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
+import { useMemo } from 'react';
 
-const menuItems = [
+
+const allMenuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/attendance', label: 'Attendance', icon: Camera },
-  { href: '/students', label: 'Students', icon: Users },
-  { href: '/reports', label: 'Reports', icon: BarChart3 },
+  { href: '/attendance', label: 'Attendance', icon: Camera, roles: ['instructor'] },
+  { href: '/students', label: 'Students', icon: Users, roles: ['instructor'] },
+  { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['instructor'] },
   { href: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
   const { user } = useUser();
+  const firestore = useFirestore();
 
-  if (!user) return null;
+  const userDocRef = useMemo(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData } = useDoc(userDocRef);
+
+  const role = userData?.roleId;
+
+  if (!user || !role) return null; // Don't render sidebar if user or role is not loaded
+
+  const menuItems = allMenuItems.filter(item => {
+    if (!item.roles) return true; // Item is for all roles
+    return item.roles.includes(role);
+  });
 
   return (
     <>
