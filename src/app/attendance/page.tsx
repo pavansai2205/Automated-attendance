@@ -7,14 +7,13 @@ import StudentAttendanceTaker from "@/components/student-attendance-taker";
 import InstructorAttendanceTaker from "@/components/instructor-attendance-taker";
 import { useUser, useDoc, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
+import { AuthGuard } from "@/components/auth-guard";
 
-export default function AttendancePage() {
+function AttendanceContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const router = useRouter();
 
   const userDocRef = useMemo(() => {
     if (!user || !firestore) return null;
@@ -22,12 +21,6 @@ export default function AttendancePage() {
   }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
 
   const isLoading = isUserLoading || isUserDocLoading;
   const role = userData?.roleId;
@@ -52,5 +45,13 @@ export default function AttendancePage() {
         </main>
       </SidebarInset>
     </SidebarProvider>
+  );
+}
+
+export default function AttendancePage() {
+  return (
+    <AuthGuard>
+      <AttendanceContent />
+    </AuthGuard>
   );
 }

@@ -5,16 +5,15 @@ import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { useUser, useFirestore, useDoc } from "@/firebase";
-import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import FaceRegistration from "@/components/face-registration";
 import { doc } from "firebase/firestore";
+import { AuthGuard } from "@/components/auth-guard";
 
-export default function SettingsPage() {
+function SettingsContent() {
   const { user, isUserLoading } = useUser();
   const firestore = useFirestore();
-  const router = useRouter();
 
   const userDocRef = useMemo(() => {
     if (!user || !firestore) return null;
@@ -22,12 +21,6 @@ export default function SettingsPage() {
   }, [user, firestore]);
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
-
-  useEffect(() => {
-    if (!isUserLoading && !user) {
-      router.push('/login');
-    }
-  }, [user, isUserLoading, router]);
 
   const isLoading = isUserLoading || isUserDocLoading;
   const role = userData?.roleId;
@@ -61,4 +54,12 @@ export default function SettingsPage() {
       </SidebarInset>
     </SidebarProvider>
   );
+}
+
+export default function SettingsPage() {
+  return (
+    <AuthGuard>
+      <SettingsContent />
+    </AuthGuard>
+  )
 }
