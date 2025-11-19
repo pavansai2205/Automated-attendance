@@ -50,7 +50,7 @@ service cloud.firestore {
     match /users/{userId} {
       allow read, delete: if request.auth.uid == userId;
       allow create: if request.auth.uid == userId && request.resource.data.id == userId;
-      allow update: if request.auth.uid == userId && request.resource.data.roleId == resource.data.roleId;
+      allow update: if request.auth.uid == userId;
       allow list: if isInstructor();
     }
 
