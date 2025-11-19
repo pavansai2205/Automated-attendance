@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -24,25 +24,25 @@ export default function FaceRegistration() {
 
   const hasRegisteredFace = !!userData?.faceTemplate;
 
+  const getCameraPermission = useCallback(async () => {
+    if (hasRegisteredFace) {
+      setHasCameraPermission(false);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      setHasCameraPermission(true);
+
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+    } catch (error) {
+      console.error('Error accessing camera:', error);
+      setHasCameraPermission(false);
+    }
+  }, [hasRegisteredFace]);
+
   useEffect(() => {
-    const getCameraPermission = async () => {
-      if (hasRegisteredFace) {
-        setHasCameraPermission(false);
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        setHasCameraPermission(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-      }
-    };
-
     getCameraPermission();
 
     return () => {
@@ -51,7 +51,7 @@ export default function FaceRegistration() {
         stream.getTracks().forEach(track => track.stop());
       }
     };
-  }, [hasRegisteredFace]);
+  }, [getCameraPermission]);
 
   const registerFace = async () => {
     if (!videoRef.current || !canvasRef.current || !user) return;
