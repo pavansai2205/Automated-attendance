@@ -8,20 +8,12 @@ import { Button } from '@/components/ui/button';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { useAuth, useFirestore } from '@/firebase';
 import { useRouter } from 'next/navigation';
@@ -34,7 +26,6 @@ import { doc, getDoc } from 'firebase/firestore';
 const formSchema = z.object({
   email: z.string().email({ message: 'Invalid email address.' }),
   password: z.string().min(6, { message: 'Password must be at least 6 characters.' }),
-  roleId: z.enum(['student', 'instructor'], { required_error: 'You must select a role.' }),
 });
 
 export default function LoginPage() {
@@ -60,43 +51,57 @@ export default function LoginPage() {
       const user = userCredential.user;
 
       if (user) {
-        // 2. Check the user's role in Firestore
+        // 2. Fetch the user's document from Firestore to get their role
         const userDocRef = doc(firestore, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
 
-        if (userDoc.exists() && userDoc.data().roleId === values.roleId) {
-          
-          // 3. Set custom claim for the user's role to sync permissions
-          await fetch('/api/set-role', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ uid: user.uid, role: values.roleId }),
-          });
+        if (userDoc.exists()) {
+          const userData = userDoc.data();
+          const userRole = userData.roleId;
 
-          // 4. Force refresh the token to get the custom claim immediately
-          await user.getIdToken(true);
+          if (userRole) {
+            // 3. Set custom claim for the user's role to sync permissions
+            await fetch('/api/set-role', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ uid: user.uid, role: userRole }),
+            });
 
-          // 5. Role matches, proceed to dashboard
-          router.push('/');
+            // 4. Force refresh the token to get the custom claim immediately
+            await user.getIdToken(true);
 
+            // 5. Role is set, proceed to dashboard
+            router.push('/');
+          } else {
+             // This case should ideally not happen if signup is working correctly
+             await signOut(auth);
+             toast({
+                variant: 'destructive',
+                title: 'Login Failed',
+                description: 'Your user profile is missing a role. Please contact support.',
+             });
+             setIsLoading(false);
+          }
         } else {
-          // Role does not match, sign out and show error
+          // No user document found, something is wrong.
           await signOut(auth);
           toast({
             variant: 'destructive',
             title: 'Login Failed',
-            description: userDoc.exists() 
-              ? `You are not registered as a/an ${values.roleId}. Please select the correct role.`
-              : 'No user record found. Please sign up first.',
+            description: 'No user record found. Please sign up first.',
           });
           setIsLoading(false);
         }
       }
     } catch (error: any) {
+      let errorMessage = error.message;
+      if (error.code === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password. Please try again.';
+      }
       toast({
         variant: 'destructive',
         title: 'Login Failed',
-        description: error.message,
+        description: errorMessage,
       });
       setIsLoading(false);
     }
@@ -144,30 +149,6 @@ export default function LoginPage() {
                     <FormControl>
                       <Input type="password" placeholder="••••••••" {...field} />
                     </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-              <FormField
-                control={form.control}
-                name="roleId"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Role</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Select your role" />
-                        </SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        <SelectItem value="student">Student</SelectItem>
-                        <SelectItem value="instructor">Instructor</SelectItem>
-                      </SelectContent>
-                    </Select>
-                     <FormDescription>
-                      You must select the role you registered with.
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
