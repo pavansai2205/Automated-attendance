@@ -3,23 +3,42 @@
 import { AppSidebar } from "@/components/layout/sidebar";
 import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
-import DashboardPage from "@/components/dashboard-page";
-import { useUser } from "@/firebase";
+import StudentListPage from "@/components/student-list-page";
+import { useUser, useDoc, useFirestore } from "@/firebase";
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { Loader2 } from "lucide-react";
+import { doc } from "firebase/firestore";
 
-export default function Home() {
+export default function StudentsPage() {
   const { user, isUserLoading } = useUser();
+  const firestore = useFirestore();
   const router = useRouter();
+
+  const userDocRef = useMemo(() => {
+    if (!user || !firestore) return null;
+    return doc(firestore, 'users', user.uid);
+  }, [user, firestore]);
+
+  const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
   useEffect(() => {
     if (!isUserLoading && !user) {
       router.push('/login');
     }
   }, [user, isUserLoading, router]);
+  
+  useEffect(() => {
+    if(userData && userData.roleId !== 'instructor') {
+      router.push('/');
+    }
+  }, [userData, router])
 
-  if (isUserLoading || !user) {
+
+  const isLoading = isUserLoading || isUserDocLoading;
+  const role = userData?.roleId;
+
+  if (isLoading || !user || role !== 'instructor') {
     return (
       <div className="flex h-screen w-full items-center justify-center">
         <Loader2 className="h-8 w-8 animate-spin" />
@@ -35,7 +54,7 @@ export default function Home() {
       <SidebarInset>
         <AppHeader />
         <main className="p-4 lg:p-6">
-          <DashboardPage />
+          <StudentListPage />
         </main>
       </SidebarInset>
     </SidebarProvider>
