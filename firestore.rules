@@ -110,7 +110,7 @@ service cloud.firestore {
       
       // Allow listing of all records for instructors.
       // Allow students to list records only for themselves.
-      allow list: if isInstructor() || request.query.where.studentId == request.auth.uid;
+      allow list: if isInstructor() || (request.query.where.studentId == request.auth.uid);
 
       // Nobody can update or delete records to maintain data integrity.
       allow update, delete: if false;
