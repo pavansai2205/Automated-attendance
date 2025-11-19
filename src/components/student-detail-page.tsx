@@ -1,6 +1,6 @@
 'use client';
 
-import { useTransition, useState } from 'react';
+import { useTransition, useState, useMemo } from 'react';
 import type { Student as StudentType, AttendanceRecord } from '@/lib/types';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
@@ -15,7 +15,7 @@ import { Loader2, Wand2 } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import Image from 'next/image';
-import { useDoc, useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useDoc, useCollection, useFirestore } from '@/firebase';
 import { doc, collection, query, where, orderBy } from 'firebase/firestore';
 import { notFound } from 'next/navigation';
 
@@ -36,15 +36,15 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
   const firestore = useFirestore();
 
   // Fetch student data in realtime
-  const studentDocRef = useMemoFirebase(() => doc(firestore, 'users', studentId), [firestore, studentId]);
+  const studentDocRef = useMemo(() => firestore ? doc(firestore, 'users', studentId) : null, [firestore, studentId]);
   const { data: student, isLoading: isLoadingStudent } = useDoc<Omit<StudentType, 'id' | 'name' | 'attendanceHistory' | 'attendanceStatus'>>(studentDocRef);
 
   // Fetch student attendance history in realtime
-  const attendanceQuery = useMemoFirebase(() => query(
+  const attendanceQuery = useMemo(() => firestore ? query(
     collection(firestore, 'attendanceRecords'), 
     where('studentId', '==', studentId),
     orderBy('timestamp', 'desc')
-    ), [firestore, studentId]);
+    ) : null, [firestore, studentId]);
   const { data: attendanceHistory, isLoading: isLoadingHistory } = useCollection<AttendanceRecord>(attendanceQuery);
 
 
@@ -114,7 +114,7 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
           </Avatar>
           <div>
             <CardTitle className="text-3xl">{studentName}</CardTitle>
-            <CardDescription>Student ID: {student.id}</CardDescription>
+            <CardDescription>Student ID: {studentId}</CardDescription>
           </div>
         </CardHeader>
       </Card>
@@ -212,5 +212,3 @@ export default function StudentDetailPage({ studentId }: StudentDetailPageProps)
     </div>
   );
 }
-
-    

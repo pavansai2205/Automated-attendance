@@ -5,7 +5,7 @@ import { AppHeader } from "@/components/layout/header";
 import { SidebarProvider, Sidebar, SidebarInset } from "@/components/ui/sidebar";
 import StudentAttendanceTaker from "@/components/student-attendance-taker";
 import InstructorAttendanceTaker from "@/components/instructor-attendance-taker";
-import { useUser, useDoc, useMemoFirebase, useFirestore } from "@/firebase";
+import { useUser, useDoc, useFirestore } from "@/firebase";
 import { doc } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -16,10 +16,8 @@ export default function AttendancePage() {
   const firestore = useFirestore();
   const router = useRouter();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!user || !firestore) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
+  // The userDocRef will be stable because `user` and `firestore` are stable
+  const userDocRef = user && firestore ? doc(firestore, 'users', user.uid) : null;
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 

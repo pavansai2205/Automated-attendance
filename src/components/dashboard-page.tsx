@@ -35,7 +35,7 @@ import type { AttendanceStatus } from '@/lib/types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { handleSummarizeTrends } from '@/app/actions';
-import { useCollection, useFirestore, useMemoFirebase } from '@/firebase';
+import { useCollection, useFirestore } from '@/firebase';
 import { collection, query, where, Timestamp } from 'firebase/firestore';
 import type { Student, AttendanceRecord } from '@/lib/types';
 
@@ -61,22 +61,16 @@ export default function DashboardPage() {
   const firestore = useFirestore();
 
   // 1. Fetch all students in realtime
-  const studentsQuery = useMemoFirebase(() => {
-    if (!firestore) return null;
-    return query(collection(firestore, 'users'), where('roleId', '==', 'student'));
-  }, [firestore]);
+  const studentsQuery = firestore ? query(collection(firestore, 'users'), where('roleId', '==', 'student')) : null;
   const { data: studentsData, isLoading: isLoadingStudents } = useCollection<Omit<Student, 'attendanceHistory' | 'attendanceStatus'>>(studentsQuery);
 
   // 2. Fetch today's attendance records in realtime
   const { start: startOfToday, end: endOfToday } = getDayRange(new Date());
-  const attendanceQuery = useMemoFirebase(() => {
-      if (!firestore) return null;
-      return query(
+  const attendanceQuery = firestore ? query(
         collection(firestore, 'attendanceRecords'),
         where('timestamp', '>=', Timestamp.fromDate(startOfToday)),
         where('timestamp', '<=', Timestamp.fromDate(endOfToday))
-      )
-    }, [firestore, startOfToday, endOfToday]);
+      ) : null;
   const { data: attendanceRecords, isLoading: isLoadingAttendance } = useCollection<AttendanceRecord>(attendanceQuery);
   
   // 3. Combine students and their attendance status

@@ -6,7 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Loader2, UserCheck, Video } from 'lucide-react';
 import { handleVerifyAndMarkAttendance, handleDetectFace } from '@/app/actions';
-import { useUser, useFirestore, useDoc, useMemoFirebase } from '@/firebase';
+import { useUser, useFirestore, useDoc } from '@/firebase';
 import { collection, query, where, getDocs, doc } from 'firebase/firestore';
 import { Button } from './ui/button';
 
@@ -25,10 +25,7 @@ export default function StudentAttendanceTaker() {
   const [isLoadingAttendance, setIsLoadingAttendance] = useState(true);
   const { toast } = useToast();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
+  const userDocRef = user && firestore ? doc(firestore, 'users', user.uid) : null;
 
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
   const hasRegisteredFace = !!userData?.faceTemplate;

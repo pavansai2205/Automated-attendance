@@ -6,24 +6,20 @@ import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Camera, Loader2, UserCheck } from 'lucide-react';
-import { useUser, useDoc, useMemoFirebase } from '@/firebase';
-import { doc, getFirestore } from 'firebase/firestore';
+import { useUser, useDoc, useFirestore } from '@/firebase';
+import { doc } from 'firebase/firestore';
 import { handleRegisterFace } from '@/app/actions';
 
 export default function FaceRegistration() {
   const { user } = useUser();
-  const firestore = getFirestore();
+  const firestore = useFirestore();
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const { toast } = useToast();
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [user, firestore]);
-
+  const userDocRef = user && firestore ? doc(firestore, 'users', user.uid) : null;
   const { data: userData, isLoading: isUserDocLoading } = useDoc(userDocRef);
 
   const hasRegisteredFace = !!userData?.faceTemplate;
