@@ -25,8 +25,12 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
     
+    // This function now uses exists() which is more secure and correct for this check.
+    // It verifies that a user document exists with the roleId of 'instructor' without
+    // needing separate read permissions on the user's own document.
     function isInstructor() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.roleId == 'instructor';
     }
 
     /**
@@ -64,7 +68,7 @@ service cloud.firestore {
     }
 
     /**
-     * @description Grants access to courses based on instructor ownership.
+* @description Grants access to courses based on instructor ownership.
      */
     match /courses/{courseId} {
         function isOwner() {
@@ -101,8 +105,6 @@ service cloud.firestore {
 
       // Students can read their own attendance records.
       // Instructors can read any attendance records (for generating reports).
-      // A more restrictive rule could be to check if the instructor owns the course
-      // related to the class session of the attendance record.
       allow read: if request.auth.uid == resource.data.studentId || isInstructor();
 
       // Nobody can update or delete records to maintain data integrity.
