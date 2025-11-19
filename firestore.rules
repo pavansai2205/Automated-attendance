@@ -27,10 +27,12 @@ service cloud.firestore {
 
     /**
      * @description Grants access to a user's profile based on their UID.
+     * The update rule prevents a user from changing their own roleId.
      */
     match /users/{userId} {
-      allow read, update, delete: if request.auth.uid == userId;
+      allow read, delete: if request.auth.uid == userId;
       allow create: if request.auth.uid == userId && request.resource.data.id == userId;
+      allow update: if request.auth.uid == userId && request.resource.data.roleId == resource.data.roleId;
       allow list: if false; // User listing is not permitted.
     }
 
