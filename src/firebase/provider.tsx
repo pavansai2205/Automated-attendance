@@ -126,14 +126,18 @@ export const useFirebase = (): FirebaseServicesAndUser => {
     throw new Error('Firebase core services not available. Check FirebaseProvider props.');
   }
 
-  return {
-    firebaseApp: context.firebaseApp,
-    firestore: context.firestore,
-    auth: context.auth,
+  // **** CRITICAL FIX ****
+  // Memoize the return object to ensure its reference is stable across re-renders.
+  // This prevents consumers of this hook (and hooks that use this hook) from
+  // re-rendering unnecessarily, which was the root cause of the infinite loops.
+  return useMemo(() => ({
+    firebaseApp: context.firebaseApp!,
+    firestore: context.firestore!,
+    auth: context.auth!,
     user: context.user,
     isUserLoading: context.isUserLoading,
     userError: context.userError,
-  };
+  }), [context]);
 };
 
 /** Hook to access Firebase Auth instance. */
