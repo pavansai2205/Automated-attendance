@@ -27,7 +27,7 @@ import { useMemo } from 'react';
 const allMenuItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/attendance', label: 'Attendance', icon: Camera, roles: ['instructor'] },
-  { href: '/timetable', label: 'Timetable', icon: CalendarDays, roles: ['instructor'] },
+  { href: '/timetable', label: 'Timetable', icon: CalendarDays, roles: ['instructor', 'student'] },
   { href: '/students', label: 'Students', icon: Users, roles: ['instructor'] },
   { href: '/reports', label: 'Reports', icon: BarChart3, roles: ['instructor'] },
   { href: '/settings', label: 'Settings', icon: Settings },
@@ -67,20 +67,26 @@ export function AppSidebar() {
       <SidebarSeparator />
       <SidebarContent>
         <SidebarMenu>
-          {menuItems.map((item) => (
-            <SidebarMenuItem key={item.label}>
-              <SidebarMenuButton
-                asChild
-                isActive={pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))}
-                tooltip={item.label}
-              >
-                <Link href={item.href}>
-                  <item.icon />
-                  <span>{item.label}</span>
-                </Link>
-              </SidebarMenuButton>
-            </SidebarMenuItem>
-          ))}
+          {menuItems.map((item) => {
+            let href = item.href;
+            if (item.label === 'Timetable' && role === 'student') {
+              href = '/timetable/student';
+            }
+            return (
+              <SidebarMenuItem key={item.label}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={pathname === href || (href !== '/' && pathname.startsWith(href))}
+                  tooltip={item.label}
+                >
+                  <Link href={href}>
+                    <item.icon />
+                    <span>{item.label}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
         </SidebarMenu>
       </SidebarContent>
     </>
