@@ -8,7 +8,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { Camera, Loader2 } from 'lucide-react';
 import { handleMarkAttendance } from '@/app/actions';
 import { useUser, useFirestore } from '@/firebase';
-import { collection, query, where, getDocs, limit, orderBy } from 'firebase/firestore';
+import { collection, query, where, getDocs } from 'firebase/firestore';
 
 export default function StudentAttendanceTaker() {
   const { user } = useUser();
@@ -27,16 +27,17 @@ export default function StudentAttendanceTaker() {
     try {
       const attendanceQuery = query(
         collection(firestore, 'attendanceRecords'),
-        where('studentId', '==', user.uid),
-        orderBy('timestamp', 'desc'),
-        limit(1)
+        where('studentId', '==', user.uid)
       );
       const querySnapshot = await getDocs(attendanceQuery);
       if (!querySnapshot.empty) {
-        const docData = querySnapshot.docs[0].data();
+        const records = querySnapshot.docs.map(doc => doc.data());
+        // Sort on the client-side
+        records.sort((a, b) => b.timestamp.toMillis() - a.timestamp.toMillis());
+        const lastRecord = records[0];
         setLastAttendance({
-          status: docData.status,
-          timestamp: docData.timestamp.toDate(),
+          status: lastRecord.status,
+          timestamp: lastRecord.timestamp.toDate(),
         });
       }
     } catch (error) {
