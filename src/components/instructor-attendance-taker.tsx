@@ -1,13 +1,14 @@
 'use client';
 
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ScanFace, Video } from 'lucide-react';
+import { Loader2, ScanFace, Video, Play, StopCircle } from 'lucide-react';
 import { handleRecognizeAndMarkAttendance, handleDetectFace } from '@/app/actions';
+import { Button } from './ui/button';
 
-type Status = 'idle' | 'scanning' | 'detecting' | 'recognizing' | 'success' | 'error';
+type Status = 'idle' | 'scanning' | 'detecting' | 'recognizing' | 'success' | 'error' | 'stopped';
 
 export default function InstructorAttendanceTaker() {
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -25,12 +26,21 @@ export default function InstructorAttendanceTaker() {
       clearInterval(scanIntervalRef.current);
       scanIntervalRef.current = null;
     }
-    setStatus('idle');
+    setStatus('stopped');
     setIsProcessing(false);
   }, []);
 
   const startScanning = useCallback(() => {
-    if (isProcessing || !videoRef.current) return;
+    if (isProcessing || !videoRef.current || hasCameraPermission === false) {
+      if(hasCameraPermission === false) {
+        toast({
+          variant: 'destructive',
+          title: 'Camera Access Denied',
+          description: 'Please enable camera permissions in your browser settings.',
+        });
+      }
+      return;
+    }
     setStatus('scanning');
     setIsProcessing(true);
 
@@ -51,7 +61,7 @@ export default function InstructorAttendanceTaker() {
       // First, quickly detect if there's a face
       const detectionResult = await handleDetectFace(photoDataUri);
       if (detectionResult.success && detectionResult.faceDetected) {
-        // If a face is detected, stop the interval and attempt recognition
+        // If a face is detected, pause the interval and attempt recognition
         if (scanIntervalRef.current) clearInterval(scanIntervalRef.current);
         setStatus('recognizing');
 
@@ -63,6 +73,14 @@ export default function InstructorAttendanceTaker() {
             title: 'Attendance Marked!',
             description: `${recognitionResult.studentName} has been marked as "Present".`,
           });
+          // Recognition successful, stop scanning and wait for user to start again
+          stopScanning();
+          setStatus('success');
+           // After a short delay, go back to idle to allow for scanning another student
+          setTimeout(() => {
+            setIsProcessing(false);
+            setStatus('idle');
+          }, 3000);
         } else {
           setStatus('error');
           toast({
@@ -70,23 +88,23 @@ export default function InstructorAttendanceTaker() {
             title: 'Recognition Failed',
             description: recognitionResult.error || 'Could not recognize student. Please try again.',
           });
+          // After an error, restart scanning after a brief pause
+          setTimeout(() => {
+            if (!scanIntervalRef.current) startScanning();
+          }, 2000);
         }
-        // After a short delay, go back to idle to allow for scanning another student
-        setTimeout(() => {
-          setIsProcessing(false);
-          setStatus('idle');
-        }, 3000); // 3-second cooldown
       } else {
          // If no face, just go back to scanning
          setStatus('scanning');
       }
     }, 2000); // Scan every 2 seconds
-  }, [isProcessing, toast]);
+  }, [isProcessing, toast, hasCameraPermission, stopScanning]);
 
   useEffect(() => {
+    let stream: MediaStream;
     const getCameraPermission = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
         setHasCameraPermission(true);
 
         if (videoRef.current) {
@@ -102,33 +120,21 @@ export default function InstructorAttendanceTaker() {
 
     return () => {
       stopScanning();
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
+      if (stream) {
         stream.getTracks().forEach(track => track.stop());
+      }
+      if (videoRef.current && videoRef.current.srcObject) {
+         const cleanupStream = videoRef.current.srcObject as MediaStream;
+         cleanupStream.getTracks().forEach(track => track.stop());
       }
     };
   }, [stopScanning]);
-
-  useEffect(() => {
-    const handleVisibilityChange = () => {
-      if (document.hidden) {
-        stopScanning();
-      } else if (status !== 'success' && status !== 'error' && hasCameraPermission) {
-        setStatus('idle'); // Reset status when tab becomes visible again
-      }
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, [status, hasCameraPermission, stopScanning]);
 
 
   const getStatusMessage = () => {
     switch (status) {
       case 'idle':
-        return 'Ready to scan.';
+        return 'Ready to scan. Press "Start Scanning".';
       case 'scanning':
         return 'Scanning for students...';
       case 'detecting':
@@ -139,6 +145,8 @@ export default function InstructorAttendanceTaker() {
         return `Success! ${lastRecognition?.name} marked present.`;
       case 'error':
         return 'Recognition failed. Please try again.';
+      case 'stopped':
+          return 'Scanning stopped.';
       default:
         return 'Point the camera at a student.';
     }
@@ -161,7 +169,7 @@ export default function InstructorAttendanceTaker() {
       <CardHeader>
         <CardTitle>Automated Attendance Scanner</CardTitle>
         <CardDescription>
-          The system will automatically detect and recognize students when they appear in the frame.
+          Start the scanner to automatically detect and recognize students when they appear in the frame.
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col items-center gap-4">
@@ -192,6 +200,16 @@ export default function InstructorAttendanceTaker() {
           </div>
         </div>
       </CardContent>
+       <CardFooter className='grid grid-cols-2 gap-2'>
+            <Button onClick={startScanning} disabled={isProcessing}>
+                <Play className='mr-2' />
+                Start Scanning
+            </Button>
+            <Button onClick={stopScanning} disabled={!isProcessing} variant="destructive">
+                <StopCircle className='mr-2' />
+                Stop Scanning
+            </Button>
+       </CardFooter>
     </Card>
   );
 }
